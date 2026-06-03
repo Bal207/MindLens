@@ -1,9 +1,7 @@
 class StateAnalyzer:
     def __init__(self):
-        self.confirmed_state = "Idle"
-        self.candidate_state = "Idle"
-        self.consecutive_frames = 0
-        self.frame_threshold = 2 
+        self.history = []
+        self.history_limit = 10
 
     def check_overlap(self, hand_coords, bbox):
         x1, y1, x2, y2 = bbox
@@ -18,13 +16,23 @@ class StateAnalyzer:
         book_box = None
         laptop_box = None
 
+        phone_conf = 0.0
+        book_conf = 0.0
+        laptop_conf = 0.0
+
         for obj in objects:
-            if obj["class"] == 67 and obj["conf"] > 0.5:
-                phone_box = obj["bbox"]
+            if obj["class"] == 67:
+                if obj["conf"] > phone_conf:
+                    phone_conf = obj["conf"]
+                    phone_box = obj["bbox"]
             elif obj["class"] == 73:
-                book_box = obj["bbox"]
+                if obj["conf"] > book_conf:
+                    book_conf = obj["conf"]
+                    book_box = obj["bbox"]
             elif obj["class"] == 63:
-                laptop_box = obj["bbox"]
+                if obj["conf"] > laptop_conf:
+                    laptop_conf = obj["conf"]
+                    laptop_box = obj["bbox"]
 
         in_desk_zone = False
         for hx, hy in hand_coords:
@@ -32,24 +40,24 @@ class StateAnalyzer:
                 in_desk_zone = True
                 break
 
-        if phone_box and self.check_overlap(hand_coords, phone_box) and not is_pinching:
+        has_phone = phone_box and self.check_overlap(hand_coords, phone_box)
+        has_book = book_box and self.check_overlap(hand_coords, book_box)
+        has_laptop = laptop_box and self.check_overlap(hand_coords, laptop_box)
+
+        is_real_phone = has_phone and phone_conf >= 0.60 and not is_pinching
+        if is_real_phone and not (has_laptop and phone_conf < 0.75) and not (has_book and phone_conf < 0.75):
             raw_state = "Actively Using Phone"
         elif is_pinching and in_desk_zone:
             raw_state = "Studying / Writing"
-        elif laptop_box and self.check_overlap(hand_coords, laptop_box):
+        elif has_laptop:
             raw_state = "Studying / Writing"
-        elif book_box and self.check_overlap(hand_coords, book_box):
+        elif has_book:
             raw_state = "Reading"
         elif head_down and in_desk_zone:
             raw_state = "Reading"
 
-        if raw_state == self.candidate_state:
-            self.consecutive_frames += 1
-        else:
-            self.candidate_state = raw_state
-            self.consecutive_frames = 1
+        self.history.append(raw_state)
+        if len(self.history) > self.history_limit:
+            self.history.pop(0)
 
-        if self.consecutive_frames >= self.frame_threshold:
-            self.confirmed_state = self.candidate_state
-
-        return self.confirmed_state
+        return max(set(self.history), key=self.history.count)

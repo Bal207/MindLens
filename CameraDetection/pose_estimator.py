@@ -23,21 +23,21 @@ class PoseEstimator:
             for hand_landmarks in hand_results.multi_hand_landmarks:
                 for lm in hand_landmarks.landmark:
                     hand_coords.append((int(lm.x * w), int(lm.y * h)))
-                
+
                 wrist = hand_landmarks.landmark[0]
                 knuckle = hand_landmarks.landmark[9]
-                hand_scale = np.sqrt((wrist.x - knuckle.x)**2 + (wrist.y - knuckle.y)**2)
-                if hand_scale == 0: 
+                hand_scale = np.sqrt((wrist.x - knuckle.x)**2 + (wrist.y - knuckle.y)**2 + (wrist.z - knuckle.z)**2)
+                if hand_scale == 0:
                     hand_scale = 1
-                
+
                 t = hand_landmarks.landmark[4]
                 i = hand_landmarks.landmark[8]
                 m = hand_landmarks.landmark[12]
-                
-                dist_ti = np.sqrt((t.x - i.x)**2 + (t.y - i.y)**2) / hand_scale
-                dist_tm = np.sqrt((t.x - m.x)**2 + (t.y - m.y)**2) / hand_scale
-                
-                if dist_ti < 0.4 or dist_tm < 0.4:
+
+                dist_ti = np.sqrt((t.x - i.x)**2 + (t.y - i.y)**2 + (t.z - i.z)**2) / hand_scale
+                dist_tm = np.sqrt((t.x - m.x)**2 + (t.y - m.y)**2 + (t.z - m.z)**2) / hand_scale
+
+                if dist_ti < 0.33 or dist_tm < 0.33:
                     is_pinching = True
 
         head_down = False
@@ -46,9 +46,9 @@ class PoseEstimator:
             forehead = face.landmark[10]
             chin = face.landmark[152]
             nose = face.landmark[1]
-            
+
             chin_y_px = int(chin.y * h)
-            
+
             face_height = np.abs(forehead.y - chin.y)
             if face_height > 0:
                 nose_to_chin_ratio = (chin.y - nose.y) / face_height

@@ -3,7 +3,7 @@ from ultralytics import YOLO
 import os
 
 class ObjectDetector:
-    def __init__(self, model_path="yolo26n.pt", conf_threshold=0.45):
+    def __init__(self, model_path="yolo26n.pt", conf_threshold=0.3):
         if torch.backends.mps.is_available():
             self.device = "mps"
         elif torch.cuda.is_available():
