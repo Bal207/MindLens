@@ -1,7 +1,0 @@
-path: ./dataset 
-train: train/images
-val: val/images
-
-names:
-  0: hand
-  1: cellphone
