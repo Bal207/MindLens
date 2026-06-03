@@ -23,5 +23,6 @@ class ObjectDetector:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 cls_id = int(box.cls[0])
                 conf_val = float(box.conf[0])
-                boxes_data.append({"bbox": (x1, y1, x2, y2), "class": cls_id, "conf": conf_val})
+                class_name = self.model.names.get(cls_id, str(cls_id))
+                boxes_data.append({"bbox": (x1, y1, x2, y2), "class": cls_id, "name": class_name, "conf": conf_val})
         return boxes_data

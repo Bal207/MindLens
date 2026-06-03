@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MindLens - Focus Tracker</title>
+    <meta name="description"
+        content="AI-powered productivity tracker. Monitor your focus with camera and screen detection.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon">ML</div>
+            <span class="logo-text">MindLens</span>
+        </div>
+        <div class="header-center">
+            <div class="status-badge" id="status-badge">
+                <div class="status-dot" id="status-dot"></div>
+                <span id="status-label">Not Started</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <button class="btn-session start" id="session-btn" onclick="toggleSession()">Start Session</button>
+        </div>
+    </header>
+
+    <main class="main">
+        <section class="hero-panel">
+            <div class="hero-copy">
+                <span class="eyebrow">Live Focus Workspace</span>
+                <h1>Your attention, measured clearly.</h1>
+                <p>Track camera and screen signals, tune your own labels, and compare each focus session over time.</p>
+            </div>
+            <div class="hero-metrics">
+                <div>
+                    <span class="metric-label">Focus Score</span>
+                    <strong id="focus-score">0%</strong>
+                </div>
+                <div>
+                    <span class="metric-label">Saved Sessions</span>
+                    <strong id="saved-count">0</strong>
+                </div>
+            </div>
+        </section>
+
+        <section class="workspace-grid">
+            <div class="left-stack">
+                <section class="camera-card panel">
+                    <div class="card-header">
+                        <span class="card-title">Camera Feed</span>
+                        <div id="cam-state-badge" class="state-indicator neutral">Idle</div>
+                    </div>
+                    <div class="camera-wrap">
+                        <img id="camera-feed" class="camera-feed" src="/video_feed" alt="Camera feed">
+                        <div id="camera-offline" class="camera-offline" style="display:none;">
+                            <span class="offline-icon">CAM</span>
+                            <span>Camera detection off</span>
+                        </div>
+                    </div>
+                    <div class="detection-info-bar">
+                        <div class="detection-item">
+                            <span class="detection-label">Camera</span>
+                            <span class="detection-value" id="cam-state-text">Idle</span>
+                        </div>
+                        <div class="detection-divider"></div>
+                        <div class="detection-item">
+                            <span class="detection-label">Screen</span>
+                            <span class="detection-value" id="scr-state-text">Neutral</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel controls-panel">
+                    <div class="card-header">
+                        <span class="card-title">Detection</span>
+                    </div>
+                    <div class="toggle-list">
+                        <div class="toggle-row">
+                            <div class="toggle-info">
+                                <div class="toggle-icon">CAM</div>
+                                <div class="toggle-text">
+                                    <div class="label">Camera Detection</div>
+                                    <div class="sublabel">Phone use, reading, and posture</div>
+                                </div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="camera-toggle" checked onchange="toggleCamera()">
+                                <span class="toggle-track"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-row">
+                            <div class="toggle-info">
+                                <div class="toggle-icon">OCR</div>
+                                <div class="toggle-text">
+                                    <div class="label">Screen Detection</div>
+                                    <div class="sublabel">Content classification and custom labels</div>
+                                </div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="screen-toggle" checked onchange="toggleScreen()">
+                                <span class="toggle-track"></span>
+                            </label>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <div class="right-stack">
+                <section class="panel analytics-panel">
+                    <div class="card-header">
+                        <span class="card-title">Session Analytics</span>
+                        <span class="card-subtitle" id="session-started">No active session</span>
+                    </div>
+                    <div class="analytics-body">
+                        <div class="donut-card">
+                            <div class="focus-donut" id="focus-donut">
+                                <div class="donut-center">
+                                    <span id="donut-value">0%</span>
+                                    <small>productive</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="timer-list">
+                            <div class="timer-card productive-card">
+                                <div>
+                                    <div class="timer-label">Productive</div>
+                                    <div class="timer-bar-wrap">
+                                        <div class="timer-bar productive-bar" id="bar-productive"></div>
+                                    </div>
+                                </div>
+                                <div class="timer-value productive-val" id="timer-productive">00:00:00</div>
+                            </div>
+                            <div class="timer-card distracted-card">
+                                <div>
+                                    <div class="timer-label">Distracted</div>
+                                    <div class="timer-bar-wrap">
+                                        <div class="timer-bar distracted-bar" id="bar-distracted"></div>
+                                    </div>
+                                </div>
+                                <div class="timer-value distracted-val" id="timer-distracted">00:00:00</div>
+                            </div>
+                            <div class="timer-card neutral-card">
+                                <div>
+                                    <div class="timer-label">Neutral</div>
+                                    <div class="timer-bar-wrap">
+                                        <div class="timer-bar neutral-bar" id="bar-neutral"></div>
+                                    </div>
+                                </div>
+                                <div class="timer-value neutral-val" id="timer-neutral">00:00:00</div>
+                            </div>
+                            <div class="timer-card total-card">
+                                <div class="timer-label">Total Session</div>
+                                <div class="timer-value total-val" id="timer-total">00:00:00</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel history-panel">
+                    <div class="card-header">
+                        <span class="card-title">Previous Sessions</span>
+                        <span class="card-subtitle">Saved locally</span>
+                    </div>
+                    <div class="history-chart" id="history-chart"></div>
+                    <div class="history-list" id="history-list">
+                        <div class="empty-state">No saved sessions yet.</div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="panel labels-panel">
+            <div class="card-header">
+                <span class="card-title">Custom Labels</span>
+                <span class="card-subtitle">Override detection with your own keywords</span>
+            </div>
+            <div class="labels-section">
+                <div class="labels-group">
+                    <div class="labels-group-title">
+                        <span class="dot productive-dot"></span>
+                        Productive
+                    </div>
+                    <div class="chips-container" id="productive-chips"></div>
+                    <div class="label-input-row">
+                        <input class="label-input" id="productive-input" placeholder="GitHub, Notion, VS Code">
+                        <button class="btn-add productive-add" onclick="addLabel('productive')">Add</button>
+                    </div>
+                </div>
+                <div class="labels-group">
+                    <div class="labels-group-title">
+                        <span class="dot distracted-dot"></span>
+                        Distracted
+                    </div>
+                    <div class="chips-container" id="distracted-chips"></div>
+                    <div class="label-input-row">
+                        <input class="label-input" id="distracted-input" placeholder="Reddit, TikTok, Twitter">
+                        <button class="btn-add distracted-add" onclick="addLabel('distracted')">Add</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="/script.js"></script>
+</body>
+
+</html>

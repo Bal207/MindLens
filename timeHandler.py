@@ -9,11 +9,13 @@ class timeHandler:
     def increment_time(self, dt):
         self.seconds += dt
         if self.seconds >= 60:
-            self.seconds = 0
-            self.minutes += 1
+            extra_minutes = int(self.seconds // 60)
+            self.seconds = self.seconds % 60
+            self.minutes += extra_minutes
             if self.minutes >= 60:
-                self.minutes = 0
-                self.hours += 1
+                extra_hours = self.minutes // 60
+                self.minutes = self.minutes % 60
+                self.hours += extra_hours
     
     def get_time(self):
         return self.seconds, self.minutes, self.hours

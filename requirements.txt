@@ -1,0 +1,10 @@
+flask
+pyautogui
+opencv-python
+easyocr
+torch
+transformers
+numpy
+ultralytics
+mediapipe
+pillow
