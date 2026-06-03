@@ -14,6 +14,9 @@ def main():
         neutral: int = 0
         total: int = 0
 
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
     tracker = TimeTracker()
     while cap.isOpened():
         ret, frame = cap.read()
@@ -37,9 +40,9 @@ def main():
 
     cap.release()
     cv2.destroyAllWindows()
-    print("Distracted: ", tracker.distracted/tracker.total*100)
-    print("Studying: ", tracker.studying/tracker.total*100)
-    print("Neutral: ", tracker.neutral/tracker.total*100)
+    print("Distracted: ", tracker.distracted)
+    print("Studying: ", tracker.studying)
+    print("Neutral: ", tracker.neutral)
     print("Total: ", tracker.total)
 
 
