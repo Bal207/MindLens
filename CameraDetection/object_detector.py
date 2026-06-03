@@ -1,5 +1,6 @@
 import torch
 from ultralytics import YOLO
+import os
 
 class ObjectDetector:
     def __init__(self, model_path="yolo26n.pt", conf_threshold=0.45):
@@ -9,11 +10,13 @@ class ObjectDetector:
             self.device = "cuda"
         else:
             self.device = "cpu"
+        if not os.path.isabs(model_path):
+            model_path = os.path.join(os.path.dirname(__file__), model_path)
         self.model = YOLO(model_path).to(self.device)
         self.conf_threshold = conf_threshold
 
     def detect(self, frame):
-        results = self.model.predict(source=frame, stream=True, verbose=False, classes=[67], conf=self.conf_threshold)
+        results = self.model.predict(source=frame, stream=True, verbose=False, classes=[63, 67, 73], conf=self.conf_threshold)
         boxes_data = []
         for res in results:
             for box in res.boxes:

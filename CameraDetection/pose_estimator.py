@@ -17,6 +17,7 @@ class PoseEstimator:
         hand_coords = []
         is_pinching = False
         h, w, _ = frame.shape
+        chin_y_px = h // 2
 
         if hand_results.multi_hand_landmarks:
             for hand_landmarks in hand_results.multi_hand_landmarks:
@@ -36,7 +37,7 @@ class PoseEstimator:
                 dist_ti = np.sqrt((t.x - i.x)**2 + (t.y - i.y)**2) / hand_scale
                 dist_tm = np.sqrt((t.x - m.x)**2 + (t.y - m.y)**2) / hand_scale
                 
-                if dist_ti < 0.35 or dist_tm < 0.35:
+                if dist_ti < 0.4 or dist_tm < 0.4:
                     is_pinching = True
 
         head_down = False
@@ -46,10 +47,12 @@ class PoseEstimator:
             chin = face.landmark[152]
             nose = face.landmark[1]
             
+            chin_y_px = int(chin.y * h)
+            
             face_height = np.abs(forehead.y - chin.y)
             if face_height > 0:
                 nose_to_chin_ratio = (chin.y - nose.y) / face_height
                 if nose_to_chin_ratio < 0.36:
                     head_down = True
 
-        return hand_coords, is_pinching, head_down
+        return hand_coords, is_pinching, head_down, chin_y_px

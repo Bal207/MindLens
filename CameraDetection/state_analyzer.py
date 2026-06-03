@@ -12,24 +12,34 @@ class StateAnalyzer:
                 return True
         return False
 
-    def analyze(self, objects, hand_coords, is_pinching, head_down):
+    def analyze(self, objects, hand_coords, is_pinching, head_down, chin_y):
         raw_state = "Idle"
         phone_box = None
+        book_box = None
+        laptop_box = None
 
         for obj in objects:
-            if obj["class"] == 67:
+            if obj["class"] == 67 and obj["conf"] > 0.5:
                 phone_box = obj["bbox"]
+            elif obj["class"] == 73:
+                book_box = obj["bbox"]
+            elif obj["class"] == 63:
+                laptop_box = obj["bbox"]
 
         in_desk_zone = False
         for hx, hy in hand_coords:
-            if hy > 200:
+            if hy > chin_y:
                 in_desk_zone = True
                 break
 
-        if phone_box and self.check_overlap(hand_coords, phone_box):
+        if phone_box and self.check_overlap(hand_coords, phone_box) and not is_pinching:
             raw_state = "Actively Using Phone"
-        elif head_down and is_pinching and in_desk_zone:
+        elif is_pinching and in_desk_zone:
             raw_state = "Studying / Writing"
+        elif laptop_box and self.check_overlap(hand_coords, laptop_box):
+            raw_state = "Studying / Writing"
+        elif book_box and self.check_overlap(hand_coords, book_box):
+            raw_state = "Reading"
         elif head_down and in_desk_zone:
             raw_state = "Reading"
 
