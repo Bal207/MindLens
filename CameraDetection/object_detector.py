@@ -16,7 +16,7 @@ class ObjectDetector:
         self.conf_threshold = conf_threshold
 
     def detect(self, frame):
-        results = self.model.predict(source=frame, stream=True, verbose=False, classes=[63, 67, 73], conf=self.conf_threshold)
+        results = self.model.predict(source=frame, stream=False, verbose=False, classes=[63, 67, 73], conf=self.conf_threshold)
         boxes_data = []
         for res in results:
             for box in res.boxes:

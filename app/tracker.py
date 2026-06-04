@@ -1,7 +1,6 @@
 import threading
 import time
 
-
 def get_unified_state(camera_state, screen_state):
     if camera_state == "Actively Using Phone":
         return "Distracted"
@@ -12,7 +11,6 @@ def get_unified_state(camera_state, screen_state):
     if screen_state == "Distracted":
         return "Distracted"
     return "Neutral"
-
 
 class _ModelCache:
     def __init__(self):
@@ -53,19 +51,65 @@ class _ModelCache:
             raise self._error
         return self._cv2, self._camera_pipeline, self._screen_analyzer_cls
 
-
 _model_cache = _ModelCache()
 
-
 def _enhance_frame(cv2, frame):
+    """Fast contrast enhancement. Runs in ~1-2ms per frame."""
     lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
     l, a, b = cv2.split(lab)
+    
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     l = clahe.apply(l)
+    
     enhanced = cv2.merge([l, a, b])
     enhanced = cv2.cvtColor(enhanced, cv2.COLOR_LAB2BGR)
-    enhanced = cv2.fastNlMeansDenoisingColored(enhanced, None, 4, 4, 7, 21)
+    
     return enhanced
+
+
+class CameraStream:
+    """Runs the camera hardware on a background thread to prevent buffer backups."""
+    def __init__(self, cv2_module, src=0):
+        self.cv2 = cv2_module
+        self.cap = self.cv2.VideoCapture(src)
+        if self.cap.isOpened():
+            self.cap.set(self.cv2.CAP_PROP_FRAME_WIDTH, 640)
+            self.cap.set(self.cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        
+        self.ret, self.frame = self.cap.read()
+        self.running = True
+        self.lock = threading.Lock()
+        
+        # Start the background reader
+        self.thread = threading.Thread(target=self._update, daemon=True)
+        self.thread.start()
+
+    def _update(self):
+        while self.running:
+            if self.cap.isOpened():
+                ret, frame = self.cap.read()
+                with self.lock:
+                    self.ret = ret
+                    if ret:
+                        self.frame = frame
+            else:
+                time.sleep(0.01)
+
+    def read(self):
+        with self.lock:
+            # Return a copy to prevent thread collisions while processing
+            if self.frame is not None:
+                return self.ret, self.frame.copy()
+            return self.ret, None
+
+    def release(self):
+        self.running = False
+        self.thread.join(timeout=1.0)
+        if self.cap.isOpened():
+            self.cap.release()
+
+    def isOpened(self):
+        return self.cap.isOpened()
 
 
 class MindLensTracker:
@@ -82,10 +126,8 @@ class MindLensTracker:
             self.thread.start()
 
     def _run_loop(self):
-        cap = None
+        cap_stream = None
         screen_analyzer = None
-        enhance_counter = 0
-        cached_enhanced = None
 
         try:
             with self.state.lock:
@@ -115,34 +157,24 @@ class MindLensTracker:
                 annotated_frame = None
 
                 if camera_enabled:
-                    if cap is None:
+                    if cap_stream is None:
                         with self.state.lock:
                             self.state.camera_state = "Initializing"
-                        cap = cv2.VideoCapture(0)
-                        if cap.isOpened():
-                            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-                            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-                        else:
-                            cap = None
+                        cap_stream = CameraStream(cv2, 0)
 
-                    if cap is not None and cap.isOpened():
-                        ret, frame = cap.read()
-                        if ret:
-                            enhance_counter += 1
-                            if enhance_counter % 3 == 1 or cached_enhanced is None:
-                                cached_enhanced = _enhance_frame(cv2, frame)
-                            else:
-                                cached_enhanced = frame
-
-                            camera_state, annotated_frame = camera_pipeline.get_state(cached_enhanced)
+                    if cap_stream is not None and cap_stream.isOpened():
+                        # This now returns instantly without waiting for hardware
+                        ret, frame = cap_stream.read()
+                        
+                        if ret and frame is not None:
+                            enhanced_frame = _enhance_frame(cv2, frame)
+                            camera_state, annotated_frame = camera_pipeline.get_state(enhanced_frame)
                         else:
                             camera_state = "Camera Unavailable"
-                    else:
-                        camera_state = "Camera Unavailable"
                 else:
-                    if cap is not None:
-                        cap.release()
-                        cap = None
+                    if cap_stream is not None:
+                        cap_stream.release()
+                        cap_stream = None
                     camera_state = "Camera Off"
 
                 screen_state = screen_analyzer.get_state() if screen_enabled else "Screen Off"
@@ -168,6 +200,7 @@ class MindLensTracker:
                         self.state.neutral_timer.increment_time(dt)
                     self.state.total_timer.increment_time(dt)
 
+                # Consistent frame pacing
                 time.sleep(0.03)
 
         except Exception as exc:
@@ -180,8 +213,8 @@ class MindLensTracker:
         finally:
             if screen_analyzer is not None:
                 screen_analyzer.stop()
-            if cap is not None:
-                cap.release()
+            if cap_stream is not None:
+                cap_stream.release()
 
     def _is_running(self):
         with self.state.lock:

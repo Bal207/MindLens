@@ -34,7 +34,6 @@ class ScreenAnalyzer:
             r"#include\s+<\w+>", r"public\s+class\s+\w+", r"console\.log\(", r"printf\("
         ]
         self.strong_productive_keywords = {
-            # --- Code Structure & Languages ---
             "def ", "import ", "const ", "let ", "var ", "console.log", "public class", 
             "fn ", "impl ", "std::", "iostream", "#include", "printf(", "scanf(", 
             "using namespace", "public static void main", "System.out.println", 
@@ -42,12 +41,10 @@ class ScreenAnalyzer:
             "await ", "yield ", "lambda ", "struct ", "interface ", "enum ", 
             "extends ", "implements ", "export default", "module.exports",
             
-            # --- Database & SQL ---
             "select * from", "insert into", "update set", "delete from", "join ", 
             "inner join", "group by", "order by", "create table", "drop table", 
             "alter table", "document.get", "db.collection", "mongoose.connect",
             
-            # --- CLI & Git Commands ---
             "git commit", "git push", "git checkout", "git clone", "git status",
             "git pull", "git merge", "git rebase", "git branch", "git log",
             "npm run", "npm install", "npm start", "npm test", "yarn add", "yarn start",
@@ -55,12 +52,10 @@ class ScreenAnalyzer:
             "cargo run", "make build", "gcc ", "g++ ", "cmake ", "mvn clean", "gradlew", 
             "docker run", "docker build", "docker-compose up", "kubectl ", "terraform ",
             
-            # --- Config & Files ---
             "package.json", "cargo.toml", "dockerfile", "docker-compose.yml", 
             "requirements.txt", "pom.xml", "build.gradle", "tsconfig.json", 
             ".gitignore", "webpack.config",
             
-            # --- Dev Tools & Sites ---
             "localhost:", "127.0.0.1:", "8080", "3000", "5000", "stack overflow", 
             "stackoverflow.com", "github.com", "gitlab.com", "bitbucket.org", 
             "leetcode.com", "hackerrank.com", "geeksforgeeks.org", "mdn web docs", 
@@ -69,12 +64,10 @@ class ScreenAnalyzer:
             "intellij", "webstorm", "cursor editor", "jupyter notebook", "google colab", 
             "copilot", "chatgpt", "claude.ai", "gemini.google", "postman", "insomnia",
             
-            # --- Math / Science / Design ---
             "calculator", "desmos.com", "wolframalpha.com", "wolfram alpha", 
             "geogebra.org", "symbolab.com", "mathway.com", "overleaf.com", "arxiv.org",
             "trello.com", "jira.com", "figma.com", "autocad", "solidworks", "lucidchart.com",
             
-            # --- Studying & Academia ---
             "quizlet.com", "khan academy", "coursera.org", "blackboard.com", 
             "canvas.instructure", "edx.org", "udemy.com", "pluralsight.com", 
             "datacamp.com", "skillshare.com", "google scholar", "researchgate.net", 
@@ -82,13 +75,11 @@ class ScreenAnalyzer:
         }
 
         self.ignore_terms = {
-            # --- Original App Terms ---
             "mindlens", "live focus workspace", "focus score", "saved sessions",
             "camera feed", "session analytics", "previous sessions", "custom labels",
             "camera detection", "screen detection", "productive", "distracted",
             "neutral", "total session", "override detection",
             
-            # --- Extended App UI & States ---
             "dashboard", "settings", "preferences", "user profile", "account info",
             "sign in", "sign out", "login", "logout", "billing", "subscription",
             "upgrade to pro", "help center", "customer support", "terms of service",
@@ -97,42 +88,35 @@ class ScreenAnalyzer:
         }
 
         self.productive_terms = {
-            # --- Languages & Frameworks ---
             "python", "javascript", "typescript", "java", "c++", "c#", "rust", 
             "golang", "ruby", "php", "swift", "kotlin", "scala", "dart", "react", 
             "angular", "vue", "svelte", "next.js", "flask", "django", "spring boot", 
             "laravel", "ruby on rails", "react native", "flutter",
             
-            # --- Libraries & Tech Concepts ---
             "numpy", "pandas", "opencv", "mediapipe", "transformers", "pytorch", 
             "tensorflow", "scikit-learn", "api", "function", "class", "import", "def ", 
             "const ", "return", "git", "docker", "kubernetes", "aws", "azure", "gcp", 
             "sql", "postgres", "mysql", "mongodb", "redis", "elasticsearch", "linux", 
             "ubuntu", "terminal", "powershell", "bash", "vim", "neovim", "documentation", "docs",
             
-            # --- Dev Tools & Editors ---
             "github", "stackoverflow", "stack overflow", "visual studio code", "vs code",
             "cursor", "pycharm", "sublime", "intellij", "eclipse", "xcode", "webstorm",
             "postman", "wireshark", "developer", "programming", "coding", "compiler", "debugger",
             
-            # --- Math, Science & Engineering ---
             "calculator", "calc", "math", "algebra", "geometry", "calculus", "desmos",
             "wolfram", "statistics", "equation", "theorem", "formula", "physics", 
             "chemistry", "biology", "economics", "finance", "accounting", "anatomy", 
             "thermodynamics", "mechanics", "matrix", "integral", "derivative", "graphing", 
             "machine learning", "artificial intelligence", "neural network", "deep learning",
             
-            # --- Design & Creative ---
             "figma", "adobe xd", "sketch", "photoshop", "illustrator", "premiere pro",
             "after effects", "blender", "unity", "unreal engine", "wireframe", "ui/ux",
             
-            # --- School & Academia ---
             "notion", "canvas", "blackboard", "quizlet", "khan academy", "coursera",
             "leetcode", "overleaf", "latex", "paper", "research", "assignment",
             "homework", "lecture", "syllabus", "textbook", "study guide", "essay",
             "thesis", "dissertation", "presentation", "report", "proposal",
             
-            # --- General Office & Productivity ---
             "excel", "sheets", "powerpoint", "slides", "word", "pages", "numbers",
             "slack", "teams", "jira", "trello", "asana", "monday.com", "zoom", 
             "meet", "meeting", "calendar", "notes", "pdf", "preview", "drive", 
@@ -141,38 +125,30 @@ class ScreenAnalyzer:
         }
 
         self.distracted_terms = {
-            # --- Video & Streaming ---
             "youtube", "netflix", "hulu", "disney+", "prime video", "hbo max", 
             "peacock", "paramount+", "apple tv", "crunchyroll", "funimation", 
             "vudu", "tubi", "vimeo", "dailymotion", "twitch",
             
-            # --- Social Media ---
             "tiktok", "instagram", "reddit", "twitter", "x.com", "facebook", 
             "snapchat", "pinterest", "tumblr", "bereal", "threads", "bluesky", 
             "mastodon", "weibo", "discord", "whatsapp", "telegram", "wechat",
             
-            # --- Gaming Platforms & Games ---
             "game", "gaming", "roblox", "minecraft", "fortnite", "steam", 
             "epic games", "battle.net", "origin", "ubisoft", "league of legends", 
             "valorant", "cs:go", "cs2", "dota 2", "apex legends", "call of duty", 
             "warzone", "overwatch", "genshin impact", "honkai", "xbox", 
             "playstation", "nintendo", "ign", "kotaku", "polygon",
             
-            # --- Content & Trends ---
             "memes", "shorts", "reels", "buzzfeed", "imgur", "9gag", "4chan",
             
-            # --- Music & Audio ---
             "spotify", "apple music", "soundcloud", "pandora", "tidal", "last.fm",
             
-            # --- Shopping & Ecommerce ---
             "amazon.com", "ebay", "walmart", "target", "etsy", "aliexpress", 
             "temu", "shein", "craigslist", "zillow", "wayfair", "asos",
             
-            # --- News, Gossip & Sports ---
             "tmz", "daily mail", "fox news", "cnn", "nytimes", "huffpost", 
             "espn", "bleacher report", "fantasy football", "sports betting", "draftkings",
             
-            # --- Dating ---
             "tinder", "bumble", "hinge", "okcupid", "match.com"
         }
         self.current_state = "Neutral"

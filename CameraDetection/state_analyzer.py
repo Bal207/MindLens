@@ -51,7 +51,7 @@ class StateAnalyzer:
 
         phone_area = self.box_area(phone_box) if phone_box else 0
         held_phone = has_phone and phone_conf >= 0.42
-        visible_phone = phone_box and phone_conf >= 0.48 and phone_area >= 700
+        visible_phone = phone_box and phone_conf >= 0.48 and phone_area >= 550
         high_conf_phone = phone_box and phone_conf >= 0.62
         conflicting_study_object = (has_laptop or has_book) and phone_conf < 0.72
 

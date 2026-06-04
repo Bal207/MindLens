@@ -1,18 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MindLens - Focus Tracker</title>
-    <meta name="description"
-        content="AI-powered productivity tracker. Monitor your focus with camera and screen detection.">
+    <meta name="description" content="AI-powered productivity tracker. Monitor your focus with camera and screen detection.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
 </head>
-
 <body>
     <header class="header">
         <div class="logo">
@@ -53,25 +50,28 @@
             <div class="left-stack">
                 <section class="camera-card panel">
                     <div class="card-header">
-                        <span class="card-title">Camera Feed</span>
-                        <div id="cam-state-badge" class="state-indicator neutral">Idle</div>
+                        <span class="card-title">Live Feed</span>
                     </div>
                     <div class="camera-wrap">
                         <img id="camera-feed" class="camera-feed" src="/video_feed" alt="Camera feed">
+                        
+                        <div class="feed-hud">
+                            <div class="detection-item">
+                                <span class="hud-icon">👁️</span>
+                                <span class="detection-label">Cam:</span>
+                                <span class="detection-value" id="cam-state-text">Idle</span>
+                            </div>
+                            <div class="hud-divider"></div>
+                            <div class="detection-item">
+                                <span class="hud-icon">💻</span>
+                                <span class="detection-label">Screen:</span>
+                                <span class="detection-value" id="scr-state-text">Neutral</span>
+                            </div>
+                        </div>
+
                         <div id="camera-offline" class="camera-offline" style="display:none;">
-                            <span class="offline-icon">CAM</span>
+                            <span class="offline-icon">📷</span>
                             <span>Camera detection off</span>
-                        </div>
-                    </div>
-                    <div class="detection-info-bar">
-                        <div class="detection-item">
-                            <span class="detection-label">Camera</span>
-                            <span class="detection-value" id="cam-state-text">Idle</span>
-                        </div>
-                        <div class="detection-divider"></div>
-                        <div class="detection-item">
-                            <span class="detection-label">Screen</span>
-                            <span class="detection-value" id="scr-state-text">Neutral</span>
                         </div>
                     </div>
                 </section>
@@ -209,5 +209,4 @@
 
     <script src="/script.js"></script>
 </body>
-
 </html>

@@ -272,67 +272,84 @@ input {
 
 .camera-wrap {
     position: relative;
-    background: #020304;
-}
-
-.camera-feed,
-.camera-offline {
-    width: 100%;
-    aspect-ratio: 4 / 3;
+    border-radius: 0 0 8px 8px;
+    overflow: hidden;
+    background-color: #1a1a1a;
+    aspect-ratio: 16 / 9;
+    display: flex;
 }
 
 .camera-feed {
-    display: block;
+    width: 100%;
+    height: 100%;
     object-fit: cover;
+    display: block;
+}
+
+.feed-hud {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 8px 16px;
+    border-radius: 30px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 10;
+}
+
+.detection-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+}
+
+.hud-icon {
+    font-size: 15px;
+    opacity: 0.9;
+}
+
+.detection-label {
+    color: #a1a1aa;
+    font-weight: 500;
+}
+
+.detection-value {
+    color: #ffffff;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.hud-divider {
+    width: 1px;
+    height: 14px;
+    background: rgba(255, 255, 255, 0.2);
 }
 
 .camera-offline {
+    position: absolute;
+    inset: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    color: var(--muted);
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
+    background: #27272a;
+    color: #a1a1aa;
+    font-size: 15px;
+    font-weight: 500;
+    z-index: 20;
 }
 
 .offline-icon {
-    display: grid;
-    place-items: center;
-    width: 52px;
-    height: 52px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    color: var(--faint);
-    font-size: 12px;
-    font-weight: 800;
-}
-
-.camera-overlay {
-    position: absolute;
-    right: 12px;
-    bottom: 12px;
-    left: 12px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.overlay-row {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 10px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 8px;
-    background: rgba(3, 5, 8, 0.72);
-    backdrop-filter: blur(12px);
-}
-
-.overlay-value {
-    color: var(--text);
-    font-size: 12px;
-    font-weight: 800;
+    font-size: 32px;
+    margin-bottom: 8px;
+    opacity: 0.5;
 }
 
 .state-indicator {
@@ -756,7 +773,6 @@ input {
 }
 
 @media (max-width: 1050px) {
-
     .workspace-grid,
     .analytics-body,
     .labels-section {
