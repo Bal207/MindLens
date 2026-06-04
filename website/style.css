@@ -44,6 +44,8 @@ input {
     font: inherit;
 }
 
+/* ── Header ─────────────────────────────────────────────────────────────────── */
+
 .header {
     position: sticky;
     top: 0;
@@ -162,6 +164,8 @@ input {
     transform: translateY(-1px);
 }
 
+/* ── Layout ─────────────────────────────────────────────────────────────────── */
+
 .main {
     width: min(1380px, calc(100% - 40px));
     margin: 0 auto;
@@ -265,6 +269,8 @@ input {
     font-size: 12px;
     font-weight: 600;
 }
+
+/* ── Camera card ─────────────────────────────────────────────────────────────── */
 
 .camera-card {
     overflow: hidden;
@@ -373,6 +379,244 @@ input {
     color: var(--neutral);
     background: var(--neutral-soft);
 }
+
+/* ── Override panel ──────────────────────────────────────────────────────────── */
+
+.override-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.override-badge {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px 3px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    border: 1px solid var(--line);
+    background: var(--panel-soft);
+    color: var(--muted);
+}
+
+.override-badge--productive {
+    color: var(--green);
+    background: var(--green-soft);
+    border-color: var(--green-line);
+}
+
+.override-badge--neutral {
+    color: var(--neutral);
+    background: var(--neutral-soft);
+    border-color: rgba(167, 176, 194, 0.28);
+}
+
+.override-badge--distracted {
+    color: var(--red);
+    background: var(--red-soft);
+    border-color: var(--red-line);
+}
+
+.override-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: pulse-dot 1.4s ease infinite;
+}
+
+@keyframes pulse-dot {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.3;
+    }
+}
+
+.btn-clear-override {
+    display: none;
+    align-items: center;
+    height: 28px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel-soft);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.btn-clear-override:hover {
+    background: var(--panel-hover);
+    color: var(--text);
+    border-color: var(--line-strong);
+}
+
+.override-body {
+    padding: 16px 18px 18px;
+}
+
+.override-hint {
+    margin: 0 0 14px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.override-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.override-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 40px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--panel-soft);
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+}
+
+.override-btn:hover {
+    background: var(--panel-hover);
+    color: var(--text);
+    border-color: var(--line-strong);
+    transform: translateY(-1px);
+}
+
+.override-btn--active.productive-override {
+    color: var(--green);
+    background: var(--green-soft);
+    border-color: var(--green-line);
+}
+
+.override-btn--active.neutral-override {
+    color: var(--neutral);
+    background: var(--neutral-soft);
+    border-color: rgba(167, 176, 194, 0.28);
+}
+
+.override-btn--active.distracted-override {
+    color: var(--red);
+    background: var(--red-soft);
+    border-color: var(--red-line);
+}
+
+.override-btn-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.override-btn-dot.productive-dot {
+    background: var(--green);
+}
+
+.override-btn-dot.neutral-dot {
+    background: var(--neutral);
+}
+
+.override-btn-dot.distracted-dot {
+    background: var(--red);
+}
+
+/* ── Distraction notification toast ──────────────────────────────────────────── */
+
+.notif-toast {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 340px;
+    padding: 14px 14px 14px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--red-line);
+    background: rgba(18, 14, 16, 0.94);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 95, 122, 0.12);
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.notif-toast--visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+}
+
+.notif-icon {
+    font-size: 22px;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.notif-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.notif-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 2px;
+}
+
+.notif-sub {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+.notif-close {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel-soft);
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    align-self: flex-start;
+}
+
+.notif-close:hover {
+    background: var(--panel-hover);
+    color: var(--text);
+}
+
+/* ── Analytics panel ─────────────────────────────────────────────────────────── */
 
 .analytics-body {
     display: grid;
@@ -500,6 +744,8 @@ input {
     color: var(--blue);
 }
 
+/* ── Detection toggles ───────────────────────────────────────────────────────── */
+
 .toggle-list {
     padding: 4px 0;
 }
@@ -591,6 +837,8 @@ input {
     transform: translateX(20px);
 }
 
+/* ── History panel ───────────────────────────────────────────────────────────── */
+
 .history-panel {
     min-height: 300px;
 }
@@ -652,6 +900,8 @@ input {
     color: var(--muted);
     font-size: 13px;
 }
+
+/* ── Custom labels ───────────────────────────────────────────────────────────── */
 
 .labels-panel {
     margin-top: 18px;
@@ -772,7 +1022,9 @@ input {
     border: 1px solid var(--red-line);
 }
 
+
 @media (max-width: 1050px) {
+
     .workspace-grid,
     .analytics-body,
     .labels-section {
@@ -786,6 +1038,10 @@ input {
 
     .hero-metrics {
         max-width: 420px;
+    }
+
+    .override-options {
+        grid-template-columns: repeat(3, 1fr);
     }
 }
 
@@ -822,5 +1078,15 @@ input {
 
     .timer-value {
         font-size: 20px;
+    }
+
+    .notif-toast {
+        width: calc(100vw - 32px);
+        right: 16px;
+        bottom: 16px;
+    }
+
+    .override-options {
+        grid-template-columns: 1fr;
     }
 }

@@ -1,15 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MindLens - Focus Tracker</title>
-    <meta name="description" content="AI-powered productivity tracker. Monitor your focus with camera and screen detection.">
+    <meta name="description"
+        content="AI-powered productivity tracker. Monitor your focus with camera and screen detection.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
 </head>
+
 <body>
     <header class="header">
         <div class="logo">
@@ -26,6 +29,15 @@
             <button class="btn-session start" id="session-btn" onclick="toggleSession()">Start Session</button>
         </div>
     </header>
+
+    <div class="notif-toast" id="notif-toast" aria-live="assertive" aria-atomic="true">
+        <div class="notif-icon">⚠️</div>
+        <div class="notif-body">
+            <div class="notif-title">Distraction detected</div>
+            <div class="notif-sub">You've been distracted for over 15 seconds</div>
+        </div>
+        <button class="notif-close" onclick="dismissNotif()" aria-label="Dismiss">✕</button>
+    </div>
 
     <main class="main">
         <section class="hero-panel">
@@ -54,7 +66,7 @@
                     </div>
                     <div class="camera-wrap">
                         <img id="camera-feed" class="camera-feed" src="/video_feed" alt="Camera feed">
-                        
+
                         <div class="feed-hud">
                             <div class="detection-item">
                                 <span class="hud-icon">👁️</span>
@@ -106,6 +118,38 @@
                                 <input type="checkbox" id="screen-toggle" checked onchange="toggleScreen()">
                                 <span class="toggle-track"></span>
                             </label>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel override-panel" id="override-panel">
+                    <div class="card-header">
+                        <div class="override-header-left">
+                            <span class="card-title">State Override</span>
+                            <span class="override-badge" id="override-badge" style="display:none;">
+                                <span class="override-dot"></span>
+                                Active — <span id="override-countdown">5:00</span>
+                            </span>
+                        </div>
+                        <button class="btn-clear-override" id="btn-clear-override" onclick="clearOverride()"
+                            style="display:none;">Clear</button>
+                    </div>
+                    <div class="override-body">
+                        <p class="override-hint">Correct the AI if it misclassified your current state. Override lasts 5
+                            minutes.</p>
+                        <div class="override-options">
+                            <button class="override-btn productive-override" onclick="setOverride('Productive')">
+                                <span class="override-btn-dot productive-dot"></span>
+                                Productive
+                            </button>
+                            <button class="override-btn neutral-override" onclick="setOverride('Neutral')">
+                                <span class="override-btn-dot neutral-dot"></span>
+                                Neutral
+                            </button>
+                            <button class="override-btn distracted-override" onclick="setOverride('Distracted')">
+                                <span class="override-btn-dot distracted-dot"></span>
+                                Distracted
+                            </button>
                         </div>
                     </div>
                 </section>
@@ -209,4 +253,5 @@
 
     <script src="/script.js"></script>
 </body>
+
 </html>
