@@ -12,7 +12,7 @@
    your LATEST GitHub release, so you never have to touch URLs again:
    just publish a release whose asset filenames match ASSETS below.
    ------------------------------------------------------------------ */
-const GITHUB_REPO = "YOUR_GITHUB_USERNAME/MindLens"; // TODO: set to your repo
+const GITHUB_REPO = "Bal207/MindLens"; // CI also auto-syncs this to the deploying repo
 
 const ASSETS = {
     mac:     "MindLens-macOS.dmg",
