@@ -18,6 +18,7 @@ a = Analysis(
     datas=added_files,
     hiddenimports=[
         'flask',
+        'webview',
         'mss',
         'pyautogui',
         'cv2',
@@ -50,7 +51,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,
+    console=False,  # windowed app — no terminal window pops up
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
@@ -75,4 +76,14 @@ if sys.platform == 'darwin':
         name='MindLens.app',
         icon=None,
         bundle_identifier='com.mindlens.app',
+        info_plist={
+            'NSHighResolutionCapable': True,
+            'LSApplicationCategoryType': 'public.app-category.productivity',
+            # macOS requires a usage description or it kills the app the moment
+            # it touches the camera / screen recording.
+            'NSCameraUsageDescription':
+                'MindLens uses your camera locally to detect phone use and posture.',
+            'NSMicrophoneUsageDescription':
+                'MindLens does not record audio.',
+        },
     )

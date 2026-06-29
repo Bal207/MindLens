@@ -1,4 +1,5 @@
 flask
+pywebview
 mss
 pyautogui
 opencv-python

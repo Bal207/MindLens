@@ -1,0 +1,94 @@
+name: Build & release apps
+
+# Builds the native MindLens app for macOS, Windows and Linux with PyInstaller
+# and attaches them to a GitHub Release as the exact asset names the website's
+# download buttons expect:
+#   MindLens-macOS.dmg   MindLens-Windows.zip   MindLens-Linux.tar.gz
+#
+# Cut a release by pushing a tag:   git tag v1.0.0 && git push origin v1.0.0
+# (or run it manually from the Actions tab to just produce build artifacts).
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            asset: MindLens-macOS.dmg
+          - os: windows-latest
+            asset: MindLens-Windows.zip
+          - os: ubuntu-latest
+            asset: MindLens-Linux.tar.gz
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # pywebview needs a GTK/WebKit backend on Linux to render a native window.
+      - name: Install Linux GUI deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgirepository1.0-dev gir1.2-webkit2-4.1 \
+            gobject-introspection libcairo2-dev pkg-config python3-dev
+
+      - name: Install Python deps
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          # CPU-only torch keeps the bundle small and avoids CUDA on the runners.
+          if [ "$RUNNER_OS" != "macOS" ]; then
+            pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          else
+            pip install torch torchvision
+          fi
+          pip install -r requirements.txt
+          if [ "$RUNNER_OS" = "Linux" ]; then pip install 'pywebview[gtk]' pygobject; fi
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller --clean --noconfirm MindLens.spec
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          hdiutil create -volname "MindLens" -srcfolder "dist/MindLens.app" \
+            -ov -format UDZO "MindLens-macOS.dmg"
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path dist/MindLens -DestinationPath MindLens-Windows.zip -Force
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: tar -czf MindLens-Linux.tar.gz -C dist MindLens
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.asset }}
+          fail_on_unmatched_files: true
