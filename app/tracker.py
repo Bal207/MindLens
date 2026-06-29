@@ -1,5 +1,13 @@
+import sys
 import threading
 import time
+
+# Target rate for capturing/encoding the preview frame. The heavy AI inference
+# is throttled separately inside the camera pipeline; this only governs how
+# often we JPEG-encode a frame for the live feed, which is pure overhead above
+# ~15 fps for this use case.
+DISPLAY_INTERVAL = 1.0 / 15.0
+
 
 def get_unified_state(camera_state, screen_state):
     if camera_state == "Actively Using Phone":
@@ -12,12 +20,23 @@ def get_unified_state(camera_state, screen_state):
         return "Distracted"
     return "Neutral"
 
+
 class _ModelCache:
+    """Loads every heavy model once, in the background, at process startup.
+
+    The whole point is that by the time the user clicks "Start Session" all of
+    cv2, the camera pipeline (YOLO + MediaPipe) and the screen analyzer (easyocr
+    + the zero-shot classifier) are already in memory, so the session starts in
+    well under a second instead of stalling ~10s while easyocr loads on the
+    click. The camera and screen models are independent, so they load on two
+    threads concurrently and we warm up a dummy inference on each to absorb the
+    one-time first-call cost.
+    """
+
     def __init__(self):
-        self._lock = threading.Lock()
         self._ready = threading.Event()
         self._camera_pipeline = None
-        self._screen_analyzer_cls = None
+        self._screen_analyzer = None
         self._cv2 = None
         self._error = None
         self._thread = threading.Thread(target=self._load, daemon=True)
@@ -31,11 +50,35 @@ class _ModelCache:
             import cv2
             self._cv2 = cv2
 
-            from CameraDetection.pipeline import MindLensPipeline
-            self._camera_pipeline = MindLensPipeline()
+            errors = []
 
-            from ScreenDetection.screen_analyzer import ScreenAnalyzer
-            self._screen_analyzer_cls = ScreenAnalyzer
+            def load_camera():
+                try:
+                    from CameraDetection.pipeline import MindLensPipeline
+                    pipe = MindLensPipeline()
+                    pipe.warmup()
+                    self._camera_pipeline = pipe
+                except Exception as e:  # noqa: BLE001 - surfaced via _error
+                    errors.append(e)
+
+            def load_screen():
+                try:
+                    from ScreenDetection.screen_analyzer import ScreenAnalyzer
+                    analyzer = ScreenAnalyzer()
+                    analyzer.warmup()
+                    self._screen_analyzer = analyzer
+                except Exception as e:  # noqa: BLE001 - surfaced via _error
+                    errors.append(e)
+
+            cam_thread = threading.Thread(target=load_camera, daemon=True)
+            scr_thread = threading.Thread(target=load_screen, daemon=True)
+            cam_thread.start()
+            scr_thread.start()
+            cam_thread.join()
+            scr_thread.join()
+
+            if errors:
+                raise errors[0]
 
             elapsed = time.time() - t0
             print(f"[Preload] All models ready in {elapsed:.1f}s")
@@ -45,25 +88,30 @@ class _ModelCache:
         finally:
             self._ready.set()
 
+    def is_ready(self):
+        return self._ready.is_set() and self._error is None
+
     def wait_and_get(self):
         self._ready.wait()
         if self._error:
             raise self._error
-        return self._cv2, self._camera_pipeline, self._screen_analyzer_cls
+        return self._cv2, self._camera_pipeline, self._screen_analyzer
+
 
 _model_cache = _ModelCache()
+
 
 def _enhance_frame(cv2, frame):
     """Fast contrast enhancement. Runs in ~1-2ms per frame."""
     lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
     l, a, b = cv2.split(lab)
-    
+
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     l = clahe.apply(l)
-    
+
     enhanced = cv2.merge([l, a, b])
     enhanced = cv2.cvtColor(enhanced, cv2.COLOR_LAB2BGR)
-    
+
     return enhanced
 
 
@@ -71,18 +119,38 @@ class CameraStream:
     """Runs the camera hardware on a background thread to prevent buffer backups."""
     def __init__(self, cv2_module, src=0):
         self.cv2 = cv2_module
-        self.cap = self.cv2.VideoCapture(src)
+        self.cap = self._open_capture(src)
         if self.cap.isOpened():
             self.cap.set(self.cv2.CAP_PROP_FRAME_WIDTH, 640)
             self.cap.set(self.cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        
+            # A small buffer keeps the latest frame fresh instead of letting a
+            # backlog build up; supported on most backends, harmless elsewhere.
+            try:
+                self.cap.set(self.cv2.CAP_PROP_BUFFERSIZE, 1)
+            except Exception:
+                pass
+
         self.ret, self.frame = self.cap.read()
         self.running = True
         self.lock = threading.Lock()
-        
+
         # Start the background reader
         self.thread = threading.Thread(target=self._update, daemon=True)
         self.thread.start()
+
+    def _open_capture(self, src):
+        """Open the webcam using the fastest backend for the current OS.
+
+        On Windows the default MSMF backend can take several seconds to open a
+        camera; DirectShow (CAP_DSHOW) is dramatically faster. macOS/Linux use
+        the platform default (AVFoundation / V4L2), which is already quick.
+        """
+        if sys.platform.startswith("win"):
+            cap = self.cv2.VideoCapture(src, self.cv2.CAP_DSHOW)
+            if cap.isOpened():
+                return cap
+            cap.release()
+        return self.cv2.VideoCapture(src)
 
     def _update(self):
         while self.running:
@@ -135,19 +203,20 @@ class MindLensTracker:
                 self.state.screen_state = "Initializing"
                 self.state.unified_state = "Neutral"
 
-            cv2, camera_pipeline, ScreenAnalyzerCls = _model_cache.wait_and_get()
+            cv2, camera_pipeline, screen_analyzer = _model_cache.wait_and_get()
 
-            screen_analyzer = ScreenAnalyzerCls(
-                label_provider=self._screen_labels,
-                enabled_provider=self._screen_enabled
-            )
+            # The analyzer instance is preloaded once and reused across sessions;
+            # (re)bind it to this session's live label/enable providers and start
+            # its background capture thread.
+            screen_analyzer.label_provider = self._screen_labels
+            screen_analyzer.enabled_provider = self._screen_enabled
             screen_analyzer.start()
             last_time = time.time()
 
             while self._is_running():
-                current_time = time.time()
-                dt = current_time - last_time
-                last_time = current_time
+                loop_start = time.time()
+                dt = loop_start - last_time
+                last_time = loop_start
 
                 with self.state.lock:
                     camera_enabled = self.state.camera_enabled
@@ -165,10 +234,14 @@ class MindLensTracker:
                     if cap_stream is not None and cap_stream.isOpened():
                         # This now returns instantly without waiting for hardware
                         ret, frame = cap_stream.read()
-                        
+
                         if ret and frame is not None:
+                            # Detect on a contrast-enhanced copy (better accuracy),
+                            # but show the user the natural frame so the preview
+                            # doesn't look harshly over-processed.
                             enhanced_frame = _enhance_frame(cv2, frame)
-                            camera_state, annotated_frame = camera_pipeline.get_state(enhanced_frame)
+                            camera_state, annotated_frame = camera_pipeline.get_state(
+                                frame, detect_frame=enhanced_frame)
                         else:
                             camera_state = "Camera Unavailable"
                 else:
@@ -178,7 +251,7 @@ class MindLensTracker:
                     camera_state = "Camera Off"
 
                 screen_state = screen_analyzer.get_state() if screen_enabled else "Screen Off"
-                unified_state = get_unified_state(camera_state, screen_state)
+                detected_state = get_unified_state(camera_state, screen_state)
 
                 if annotated_frame is not None:
                     ok, buffer = cv2.imencode(".jpg", annotated_frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
@@ -190,6 +263,9 @@ class MindLensTracker:
                 with self.state.lock:
                     self.state.camera_state = camera_state
                     self.state.screen_state = screen_state
+                    # A manual override (if active) wins over the detected state
+                    # for both the displayed status and the timer that ticks.
+                    unified_state = self.state.effective_state(detected_state)
                     self.state.unified_state = unified_state
 
                     if unified_state == "Distracted":
@@ -200,8 +276,9 @@ class MindLensTracker:
                         self.state.neutral_timer.increment_time(dt)
                     self.state.total_timer.increment_time(dt)
 
-                # Consistent frame pacing
-                time.sleep(0.03)
+                # Consistent frame pacing (accounting for time already spent).
+                spent = time.time() - loop_start
+                time.sleep(max(0.0, DISPLAY_INTERVAL - spent))
 
         except Exception as exc:
             print(f"[Tracker] Error: {exc}")

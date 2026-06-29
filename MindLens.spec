@@ -18,6 +18,7 @@ a = Analysis(
     datas=added_files,
     hiddenimports=[
         'flask',
+        'mss',
         'pyautogui',
         'cv2',
         'easyocr',

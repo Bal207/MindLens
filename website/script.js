@@ -224,7 +224,7 @@ function updateUI(data) {
 
     document.getElementById('camera-toggle').checked = data.camera_enabled;
     document.getElementById('screen-toggle').checked = data.screen_enabled;
-    setCameraVisibility(data.camera_enabled);
+    applyCameraView(data);
 
     ['productive', 'distracted', 'neutral'].forEach(type => {
         const card = document.querySelector(`.${type}-card`);
@@ -295,20 +295,66 @@ async function toggleCamera() {
     const res = await fetch('/api/toggle/camera', { method: 'POST' });
     const data = await res.json();
     localState.cameraEnabled = data.camera_enabled;
-    setCameraVisibility(localState.cameraEnabled);
     document.getElementById('camera-toggle').checked = localState.cameraEnabled;
+    // Reflect the change immediately instead of waiting for the next SSE tick.
+    if (localState.latestStatus) {
+        localState.latestStatus.camera_enabled = data.camera_enabled;
+        applyCameraView(localState.latestStatus);
+    }
 }
 
-function setCameraVisibility(enabled) {
+// Decide what the camera panel should show: the live feed, or a tidy dark
+// "no camera" placeholder with context-appropriate copy (off / disabled /
+// warming up / unavailable). This replaces the old behaviour where the panel
+// showed a blank white frame before a session had even started.
+function applyCameraView(data) {
     const feed = document.getElementById('camera-feed');
-    const offline = document.getElementById('camera-offline');
-    if (enabled) {
-        if (feed.style.display === 'none') feed.src = `/video_feed?${Date.now()}`;
-        feed.style.display = 'block';
-        offline.style.display = 'none';
+    const overlay = document.getElementById('camera-offline');
+    const hud = document.getElementById('feed-hud');
+    const title = document.getElementById('offline-title');
+    const sub = document.getElementById('offline-sub');
+
+    let live = false;
+    let heading = 'Camera off';
+    let subtext = 'Start a session to see your live feed';
+    let loading = false;
+
+    if (!data.is_running) {
+        // defaults above
+    } else if (!data.camera_enabled) {
+        heading = 'Camera detection off';
+        subtext = 'Turn on camera detection to see your live feed';
     } else {
+        const st = data.camera_state || '';
+        if (st === 'Initializing') {
+            heading = 'Starting camera…';
+            subtext = 'Warming up the lens';
+            loading = true;
+        } else if (st === 'Camera Unavailable' || st === 'Camera Off' || st === 'Error') {
+            heading = 'Camera unavailable';
+            subtext = 'No camera was detected on this device';
+        } else {
+            live = true;
+        }
+    }
+
+    if (live) {
+        // (Re)attach the stream only when transitioning into the live state.
+        if (feed.style.display === 'none' || !feed.getAttribute('src')) {
+            feed.src = `/video_feed?${Date.now()}`;
+        }
+        feed.style.display = 'block';
+        overlay.style.display = 'none';
+        hud.style.display = 'flex';
+    } else {
+        // Drop the stream so we don't keep pulling the placeholder in the bg.
+        if (feed.getAttribute('src')) feed.removeAttribute('src');
         feed.style.display = 'none';
-        offline.style.display = 'flex';
+        overlay.style.display = 'flex';
+        overlay.classList.toggle('is-loading', loading);
+        hud.style.display = 'none';
+        title.textContent = heading;
+        sub.textContent = subtext;
     }
 }
 

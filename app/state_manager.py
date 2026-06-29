@@ -2,6 +2,7 @@ import threading
 import sys
 import os
 import json
+import time
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -10,6 +11,8 @@ from timeHandler import timeHandler
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 HISTORY_FILE = os.path.join(DATA_DIR, "session_history.json")
+
+VALID_OVERRIDES = {"Productive", "Distracted", "Neutral"}
 
 
 class AppState:
@@ -40,6 +43,9 @@ class AppState:
         self.custom_productive = []
         self.custom_distracted = []
         self.latest_frame = None
+        # Manual user override of the detected state.
+        self.override_state = None
+        self.override_until = 0.0
         self.session_history = self._load_history()
 
     def _load_history(self):
@@ -52,8 +58,11 @@ class AppState:
 
     def _save_history(self):
         os.makedirs(DATA_DIR, exist_ok=True)
-        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+        tmp = HISTORY_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(self.session_history[-50:], f, indent=2)
+        # Atomic replace so a crash mid-write can't corrupt the history file.
+        os.replace(tmp, HISTORY_FILE)
 
     @staticmethod
     def _timer_dict(timer):
@@ -65,17 +74,44 @@ class AppState:
         seconds, minutes, hours = timer.get_time()
         return int(hours * 3600 + minutes * 60 + seconds)
 
+    # ---- Override helpers (assume caller holds self.lock) ----
+    def _override_active(self):
+        return self.override_state is not None and time.time() < self.override_until
+
+    def effective_state(self, detected_state):
+        """The state that should drive timers/UI, honouring an active override."""
+        if self._override_active():
+            return self.override_state
+        return detected_state
+
+    def set_override(self, state, duration_sec=300):
+        if state not in VALID_OVERRIDES:
+            return False
+        with self.lock:
+            self.override_state = state
+            self.override_until = time.time() + duration_sec
+        return True
+
+    def clear_override(self):
+        with self.lock:
+            self.override_state = None
+            self.override_until = 0.0
+
     def reset_timers(self):
         with self.lock:
             self.productive_timer = timeHandler()
             self.distracted_timer = timeHandler()
             self.neutral_timer = timeHandler()
             self.total_timer = timeHandler()
+            self.override_state = None
+            self.override_until = 0.0
             self.session_started_at = datetime.now(timezone.utc).isoformat()
 
     def stop_session(self):
         with self.lock:
             self.is_running = False
+            self.override_state = None
+            self.override_until = 0.0
             total_seconds = self._timer_seconds(self.total_timer)
             if total_seconds <= 0:
                 return None
@@ -113,6 +149,8 @@ class AppState:
 
     def get_status_dict(self):
         with self.lock:
+            override_active = self._override_active()
+            override_remaining = max(0, int(self.override_until - time.time())) if override_active else 0
             return {
                 "is_running": self.is_running,
                 "session_started_at": self.session_started_at,
@@ -121,6 +159,8 @@ class AppState:
                 "camera_state": self.camera_state,
                 "screen_state": self.screen_state,
                 "unified_state": self.unified_state,
+                "override_state": self.override_state if override_active else None,
+                "override_remaining": override_remaining,
                 "timers": {
                     "productive": self._timer_dict(self.productive_timer),
                     "distracted": self._timer_dict(self.distracted_timer),

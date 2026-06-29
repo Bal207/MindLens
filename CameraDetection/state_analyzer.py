@@ -1,7 +1,17 @@
+import time
+from collections import deque
+
+
 class StateAnalyzer:
+    # Vote over a fixed *time* window instead of a fixed frame count, so the
+    # amount of smoothing stays constant regardless of how fast the AI loop runs.
+    HISTORY_WINDOW_SEC = 1.6
+    # A confident phone detection only needs to persist this long to win, so
+    # genuine phone pickups are caught quickly without single-frame flicker.
+    PHONE_CONFIRM_SEC = 0.5
+
     def __init__(self):
-        self.history = []
-        self.history_limit = 4
+        self.history = deque()  # (timestamp, state)
         self.last_debug = ""
 
     def check_overlap(self, hand_coords, bbox):
@@ -14,6 +24,11 @@ class StateAnalyzer:
     def box_area(self, bbox):
         x1, y1, x2, y2 = bbox
         return max(0, x2 - x1) * max(0, y2 - y1)
+
+    def _prune(self, now):
+        cutoff = now - self.HISTORY_WINDOW_SEC
+        while self.history and self.history[0][0] < cutoff:
+            self.history.popleft()
 
     def analyze(self, objects, hand_coords, is_pinching, head_down, chin_y):
         raw_state = "Idle"
@@ -66,15 +81,24 @@ class StateAnalyzer:
         elif head_down and in_desk_zone:
             raw_state = "Reading"
 
-        self.history.append(raw_state)
-        if len(self.history) > self.history_limit:
-            self.history.pop(0)
+        now = time.time()
+        self.history.append((now, raw_state))
+        self._prune(now)
 
         self.last_debug = f"phone={phone_conf:.2f} area={phone_area} hand={bool(has_phone)}"
 
+        # Phone use is the most actionable signal, so promote it quickly: if a
+        # phone has been seen for at least PHONE_CONFIRM_SEC inside the window,
+        # report it immediately instead of waiting for a majority vote.
         if raw_state == "Actively Using Phone":
-            recent_phone_count = self.history[-2:].count("Actively Using Phone")
-            if recent_phone_count >= 1:
+            phone_span = [t for t, s in self.history if s == "Actively Using Phone"]
+            if phone_span and (now - phone_span[0]) >= self.PHONE_CONFIRM_SEC:
+                return "Actively Using Phone"
+            if len(phone_span) >= 2:
                 return "Actively Using Phone"
 
-        return max(set(self.history), key=self.history.count)
+        # Otherwise return the majority state across the time window.
+        states = [s for _, s in self.history]
+        if not states:
+            return raw_state
+        return max(set(states), key=states.count)

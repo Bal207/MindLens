@@ -65,9 +65,9 @@
                         <span class="card-title">Live Feed</span>
                     </div>
                     <div class="camera-wrap">
-                        <img id="camera-feed" class="camera-feed" src="/video_feed" alt="Camera feed">
+                        <img id="camera-feed" class="camera-feed" alt="Camera feed" style="display:none;">
 
-                        <div class="feed-hud">
+                        <div class="feed-hud" id="feed-hud" style="display:none;">
                             <div class="detection-item">
                                 <span class="hud-icon">👁️</span>
                                 <span class="detection-label">Cam:</span>
@@ -81,9 +81,20 @@
                             </div>
                         </div>
 
-                        <div id="camera-offline" class="camera-offline" style="display:none;">
-                            <span class="offline-icon">📷</span>
-                            <span>Camera detection off</span>
+                        <div id="camera-offline" class="camera-offline">
+                            <div class="offline-spinner" id="offline-spinner"></div>
+                            <div class="offline-icon" id="offline-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M2 8.5A1.5 1.5 0 0 1 3.5 7H7l1.2-1.8A1 1 0 0 1 9 4.8" />
+                                    <path d="M11 5h2.2a1 1 0 0 1 .83.45L15 7h5.5A1.5 1.5 0 0 1 22 8.5V16" />
+                                    <path d="M22 19a1.5 1.5 0 0 1-1.5 1.5h-13" />
+                                    <circle cx="12" cy="13" r="3.2" />
+                                    <line x1="3" y1="3" x2="21" y2="21" />
+                                </svg>
+                            </div>
+                            <div class="offline-title" id="offline-title">Camera off</div>
+                            <div class="offline-sub" id="offline-sub">Start a session to see your live feed</div>
                         </div>
                     </div>
                 </section>

@@ -1,0 +1,231 @@
+/**
+\mainpage MindLens
+
+\htmlonly
+<!-- Progress bar -->
+<div class="scroll-progress" id="scroll-progress"></div>
+
+<!-- Navigation -->
+<nav class="nav" id="nav">
+    <div class="nav-inner">
+        <a class="nav-logo" href="#top">
+            <span class="nav-logo-mark">&#9678;</span>
+            MindLens
+        </a>
+        <div class="nav-links">
+            <a href="#features">Features</a>
+            <a href="#how">How it works</a>
+            <a href="#privacy">Privacy</a>
+        </div>
+        <a class="nav-cta" href="#download">Download</a>
+    </div>
+</nav>
+
+<!-- Hero -->
+<header class="hero" id="top">
+    <div class="hero-glow"></div>
+    <div class="hero-content reveal">
+        <div class="hero-eyebrow">Now for macOS, Windows &amp; Linux</div>
+        <h1 class="hero-title">See your focus.</h1>
+        <p class="hero-sub">
+            MindLens watches your camera and screen &mdash; entirely on your own machine &mdash;
+            and shows you exactly where your attention goes. No accounts. No cloud. Just clarity.
+        </p>
+        <div class="hero-actions">
+            <a class="btn-primary" href="#download" id="hero-download">
+                <span class="btn-primary-label">Download</span>
+                <span class="btn-primary-os" id="hero-download-os">Free</span>
+            </a>
+            <a class="btn-ghost" href="#how">See how it works &darr;</a>
+        </div>
+        <div class="hero-meta">Free &amp; open &middot; Runs offline &middot; Under a second to start</div>
+    </div>
+
+    <!-- App mockup -->
+    <div class="hero-device reveal" id="hero-device">
+        <div class="device-frame">
+            <div class="device-bar">
+                <span class="dot red"></span><span class="dot amber"></span><span class="dot green"></span>
+                <span class="device-title">MindLens</span>
+            </div>
+            <div class="device-body">
+                <div class="device-cam">
+                    <div class="cam-scan"></div>
+                    <div class="cam-box cam-box-1">phone 71%</div>
+                    <div class="cam-box cam-box-2">book 88%</div>
+                    <span class="cam-tag">&#9679; Live</span>
+                </div>
+                <div class="device-side">
+                    <div class="ring" id="ring">
+                        <svg viewBox="0 0 120 120">
+                            <circle class="ring-track" cx="60" cy="60" r="52"></circle>
+                            <circle class="ring-fill" id="ring-fill" cx="60" cy="60" r="52"></circle>
+                        </svg>
+                        <div class="ring-label"><strong id="ring-num">0</strong><small>focus</small></div>
+                    </div>
+                    <div class="side-stat productive"><span>Productive</span><b>01:48:20</b></div>
+                    <div class="side-stat distracted"><span>Distracted</span><b>00:12:05</b></div>
+                    <div class="side-stat neutral"><span>Neutral</span><b>00:21:11</b></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Stat band -->
+<section class="band">
+    <div class="band-item reveal"><strong data-count="1" data-suffix="s">0s</strong><span>to start a session</span></div>
+    <div class="band-item reveal"><strong data-count="100" data-suffix="%">0%</strong><span>on-device, private</span></div>
+    <div class="band-item reveal"><strong data-count="3">0</strong><span>platforms supported</span></div>
+    <div class="band-item reveal"><strong>$0</strong><span>forever</span></div>
+</section>
+
+<!-- Features -->
+<section class="features" id="features">
+    <div class="section-head reveal">
+        <span class="section-eyebrow">Two senses, one signal</span>
+        <h2>It sees what you're doing<br>so you don't have to guess.</h2>
+    </div>
+
+    <div class="feature-row reveal">
+        <div class="feature-text">
+            <h3>Camera awareness</h3>
+            <p>A lightweight vision pipeline notices when you pick up your phone, lean into a
+                book, or settle into deep work &mdash; running locally at a smooth, battery-friendly pace.</p>
+            <ul class="ticks">
+                <li>Phone-in-hand detection</li>
+                <li>Reading &amp; writing posture</li>
+                <li>Hand + face landmarks, never uploaded</li>
+            </ul>
+        </div>
+        <div class="feature-art art-camera">
+            <div class="pulse-grid"></div>
+            <div class="float-chip chip-1">&#128245; Phone</div>
+            <div class="float-chip chip-2">&#128214; Reading</div>
+            <div class="float-chip chip-3">&#9997;&#65039; Writing</div>
+        </div>
+    </div>
+
+    <div class="feature-row reverse reveal">
+        <div class="feature-text">
+            <h3>Screen understanding</h3>
+            <p>MindLens reads what's on your screen and classifies it &mdash; code and coursework count
+                as focus, endless feeds don't. Add your own keywords to make it yours.</p>
+            <ul class="ticks">
+                <li>On-device OCR + zero-shot classification</li>
+                <li>Custom productive / distracting labels</li>
+                <li>Tuned for studying, coding &amp; creative work</li>
+            </ul>
+        </div>
+        <div class="feature-art art-screen">
+            <div class="tag-cloud">
+                <span class="tag good">github</span>
+                <span class="tag good">overleaf</span>
+                <span class="tag bad">tiktok</span>
+                <span class="tag good">vs code</span>
+                <span class="tag bad">reddit</span>
+                <span class="tag good">notion</span>
+                <span class="tag bad">youtube</span>
+                <span class="tag good">khan academy</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="feature-row reveal">
+        <div class="feature-text">
+            <h3>Sessions that add up</h3>
+            <p>Every session is scored and saved locally, so you can see your focus trend over
+                days and weeks &mdash; and catch the habits the moment they form.</p>
+            <ul class="ticks">
+                <li>Live focus score &amp; timers</li>
+                <li>Session history, stored on your disk</li>
+                <li>One-tap override when the AI gets it wrong</li>
+            </ul>
+        </div>
+        <div class="feature-art art-history">
+            <div class="bars">
+                <span style="--h:40%"></span><span style="--h:65%"></span><span style="--h:55%"></span>
+                <span style="--h:80%"></span><span style="--h:72%"></span><span style="--h:90%"></span>
+                <span style="--h:84%"></span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- How it works -->
+<section class="how" id="how">
+    <div class="section-head reveal">
+        <span class="section-eyebrow">From zero to insight</span>
+        <h2>Three steps. One click to start.</h2>
+    </div>
+    <div class="steps">
+        <div class="step reveal">
+            <div class="step-num">1</div>
+            <h3>Download &amp; open</h3>
+            <p>Grab the build for your OS and launch it. MindLens opens a clean dashboard right
+                in your browser &mdash; nothing to configure.</p>
+        </div>
+        <div class="step reveal">
+            <div class="step-num">2</div>
+            <h3>Start a session</h3>
+            <p>Hit start and you're tracking in under a second. Models are warmed up in the
+                background the moment the app opens.</p>
+        </div>
+        <div class="step reveal">
+            <div class="step-num">3</div>
+            <h3>Watch your focus</h3>
+            <p>See live camera and screen signals merge into a single focus score, and review
+                every session over time.</p>
+        </div>
+    </div>
+</section>
+
+<!-- Privacy -->
+<section class="privacy" id="privacy">
+    <div class="privacy-card reveal">
+        <span class="section-eyebrow">Private by design</span>
+        <h2>Your screen never leaves your screen.</h2>
+        <p>MindLens does all of its seeing and thinking on your own computer. There are no
+            accounts, no servers, and no uploads &mdash; your camera frames, screenshots and sessions
+            stay entirely on your machine.</p>
+        <div class="privacy-tags">
+            <span>&#128274; 100% on-device</span>
+            <span>&#128683; No account</span>
+            <span>&#128225; Works offline</span>
+            <span>&#128190; Local storage only</span>
+        </div>
+    </div>
+</section>
+
+<!-- Download -->
+<section class="download" id="download">
+    <div class="download-inner reveal">
+        <h2>Ready when you are.</h2>
+        <p class="download-sub">One click. No sign-up. Pick your platform and start seeing your focus.</p>
+
+        <a class="btn-download" id="primary-download" href="#" target="_blank" rel="noopener">
+            <span class="btn-download-icon" id="primary-download-icon">&#8595;</span>
+            <span class="btn-download-text">
+                <strong id="primary-download-label">Download MindLens</strong>
+                <small id="primary-download-note">Detecting your platform&hellip;</small>
+            </span>
+        </a>
+
+        <div class="os-links" id="os-links">
+            <a data-os="mac" href="#">macOS</a>
+            <a data-os="windows" href="#">Windows</a>
+            <a data-os="linux" href="#">Linux</a>
+        </div>
+        <p class="download-fine">Free &amp; open source &middot; macOS 11+, Windows 10+, modern Linux</p>
+    </div>
+</section>
+
+<footer class="footer">
+    <div class="footer-inner">
+        <span class="nav-logo"><span class="nav-logo-mark">&#9678;</span> MindLens</span>
+        <span class="footer-copy">Made for people who'd rather do the work than measure it.</span>
+    </div>
+</footer>
+\endhtmlonly
+
+*/
