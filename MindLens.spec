@@ -8,6 +8,10 @@ block_cipher = None
 # which is exactly where main.py, website/ and CameraDetection/ live.
 project_dir = os.path.abspath(SPECPATH)
 
+# App icon: Windows wants .ico, macOS wants .icns.
+icon_ico = os.path.join(project_dir, 'assets', 'icon.ico')
+icon_icns = os.path.join(project_dir, 'assets', 'icon.icns')
+
 added_files = [
     (os.path.join(project_dir, 'website'), 'website'),
     (os.path.join(project_dir, 'CameraDetection', 'yolo26n.pt'), 'CameraDetection'),
@@ -59,6 +63,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=icon_ico,
 )
 
 coll = COLLECT(
@@ -76,7 +81,7 @@ if sys.platform == 'darwin':
     app = BUNDLE(
         coll,
         name='MindLens.app',
-        icon=None,
+        icon=icon_icns,
         bundle_identifier='com.mindlens.app',
         info_plist={
             'NSHighResolutionCapable': True,

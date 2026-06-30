@@ -1,0 +1,39 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6e8bff"/>
+      <stop offset="1" stop-color="#b06bff"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="glass" cx="0.4" cy="0.35" r="0.75">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.05"/>
+    </radialGradient>
+  </defs>
+
+  <!-- squircle background -->
+  <rect x="0" y="0" width="1024" height="1024" rx="232" ry="232" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1024" height="1024" rx="232" ry="232" fill="url(#sheen)"/>
+
+  <g fill="none" stroke="#ffffff" stroke-linecap="round">
+    <!-- lens barrel -->
+    <circle cx="512" cy="512" r="300" stroke-opacity="0.95" stroke-width="46"/>
+    <!-- glass -->
+    <circle cx="512" cy="512" r="212" fill="url(#glass)" stroke="#ffffff" stroke-opacity="0.9" stroke-width="18"/>
+    <!-- focus reticle ticks -->
+    <g stroke-opacity="0.92" stroke-width="30">
+      <line x1="512" y1="118" x2="512" y2="196"/>
+      <line x1="512" y1="828" x2="512" y2="906"/>
+      <line x1="118" y1="512" x2="196" y2="512"/>
+      <line x1="828" y1="512" x2="906" y2="512"/>
+    </g>
+  </g>
+
+  <!-- pupil + specular highlight -->
+  <circle cx="512" cy="512" r="96" fill="#ffffff"/>
+  <circle cx="470" cy="466" r="30" fill="#ffffff" fill-opacity="0.6"/>
+  <ellipse cx="436" cy="412" rx="58" ry="34" fill="#ffffff" fill-opacity="0.45" transform="rotate(-35 436 412)"/>
+</svg>

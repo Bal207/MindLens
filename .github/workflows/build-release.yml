@@ -71,6 +71,11 @@ jobs:
       - name: Package (macOS)
         if: runner.os == 'macOS'
         run: |
+          # Ad-hoc sign so the bundle has a valid signature. Without this, the
+          # PyInstaller .app trips "MindLens is damaged and can't be opened" on
+          # Apple Silicon. (This is not Apple notarization — first launch still
+          # needs a right-click > Open; see the website's macOS install note.)
+          codesign --force --deep --sign - "dist/MindLens.app"
           hdiutil create -volname "MindLens" -srcfolder "dist/MindLens.app" \
             -ov -format UDZO "MindLens-macOS.dmg"
 

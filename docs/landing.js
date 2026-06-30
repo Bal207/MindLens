@@ -41,9 +41,31 @@ function detectOS() {
     return "mac"; // sensible default
 }
 
+// The downloaded app isn't Apple-notarized, so macOS quarantines it on first
+// launch. Show the "right-click > Open" note only when macOS is the target.
+function toggleMacNote(os) {
+    const note = document.getElementById("mac-note");
+    if (note) note.hidden = os !== "mac";
+}
+
 function wireDownloads() {
     const os = detectOS();
     const meta = OS_META[os];
+
+    toggleMacNote(os);
+
+    const macCopy = document.getElementById("mac-copy");
+    if (macCopy) {
+        macCopy.addEventListener("click", async () => {
+            const cmd = document.getElementById("mac-cmd").textContent.trim();
+            try {
+                await navigator.clipboard.writeText(cmd);
+                const prev = macCopy.textContent;
+                macCopy.textContent = "Copied";
+                setTimeout(() => { macCopy.textContent = prev; }, 1500);
+            } catch (_) { /* clipboard blocked; user can select manually */ }
+        });
+    }
 
     // Primary big button
     const primary = document.getElementById("primary-download");
@@ -71,6 +93,7 @@ function wireDownloads() {
             }
             document.querySelectorAll("#os-links a").forEach((x) => x.classList.remove("active"));
             a.classList.add("active");
+            toggleMacNote(target);
         });
     });
 }

@@ -217,6 +217,15 @@
             <a data-os="linux" href="#">Linux</a>
         </div>
         <p class="download-fine">Free &amp; open source &middot; macOS 11+, Windows 10+, modern Linux</p>
+
+        <div class="mac-note" id="mac-note" hidden>
+            <p><strong>Opening on macOS the first time:</strong> right-click <em>MindLens</em> in your Applications or Downloads, choose <strong>Open</strong>, then <strong>Open</strong> again. macOS only asks once.</p>
+            <p class="mac-note-alt">Still blocked or says &ldquo;damaged&rdquo;? Paste this in Terminal:</p>
+            <div class="mac-cmd-row">
+                <code id="mac-cmd">xattr -dr com.apple.quarantine /Applications/MindLens.app</code>
+                <button class="mac-copy" type="button" id="mac-copy">Copy</button>
+            </div>
+        </div>
     </div>
 </section>
 
