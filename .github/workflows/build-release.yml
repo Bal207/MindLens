@@ -59,7 +59,10 @@ jobs:
             pip install torch torchvision
           fi
           pip install -r requirements.txt
-          if [ "$RUNNER_OS" = "Linux" ]; then pip install 'pywebview[gtk]' pygobject; fi
+          # PyGObject >=3.52 needs the glib girepository-2.0 dev package, which
+          # isn't on the runner; pin to the 3.50 series that works with the
+          # libgirepository1.0-dev installed in the GUI-deps step above.
+          if [ "$RUNNER_OS" = "Linux" ]; then pip install 'pywebview[gtk]' 'PyGObject<3.52'; fi
           pip install pyinstaller
 
       - name: Build with PyInstaller

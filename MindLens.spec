@@ -4,7 +4,9 @@ import os
 
 block_cipher = None
 
-project_dir = os.path.abspath(os.path.dirname(SPECPATH))
+# SPECPATH is the directory that contains this .spec file (the repo root),
+# which is exactly where main.py, website/ and CameraDetection/ live.
+project_dir = os.path.abspath(SPECPATH)
 
 added_files = [
     (os.path.join(project_dir, 'website'), 'website'),
