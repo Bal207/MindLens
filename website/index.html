@@ -4,19 +4,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MindLens - Focus Tracker</title>
+    <title>MindLens — Focus Tracker</title>
     <meta name="description"
-        content="AI-powered productivity tracker. Monitor your focus with camera and screen detection.">
+        content="AI-powered productivity tracker that runs entirely in your browser. Camera and screen focus detection, 100% on-device.">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <meta name="theme-color" content="#6e8bff">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="style.css">
+
+    <!-- On-device ML: TensorFlow.js + coco-ssd (object detection) and
+         Tesseract.js (screen OCR). MediaPipe tasks-vision is imported by the
+         engine module. Everything runs locally; no frames are uploaded. -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
 </head>
 
 <body>
     <header class="header">
         <div class="logo">
-            <div class="logo-icon">ML</div>
+            <img class="logo-icon-img" src="favicon.svg" alt="MindLens" width="34" height="34">
             <span class="logo-text">MindLens</span>
         </div>
         <div class="header-center">
@@ -26,7 +35,7 @@
             </div>
         </div>
         <div class="header-right">
-            <button class="btn-session start" id="session-btn" onclick="toggleSession()">Start Session</button>
+            <button class="btn-session start" id="session-btn">Start Session</button>
         </div>
     </header>
 
@@ -36,15 +45,16 @@
             <div class="notif-title">Distraction detected</div>
             <div class="notif-sub">You've been distracted for over 15 seconds</div>
         </div>
-        <button class="notif-close" onclick="dismissNotif()" aria-label="Dismiss">✕</button>
+        <button class="notif-close" aria-label="Dismiss">✕</button>
     </div>
 
     <main class="main">
         <section class="hero-panel">
             <div class="hero-copy">
-                <span class="eyebrow">Live Focus Workspace</span>
+                <span class="eyebrow">Live Focus Workspace · 100% on-device</span>
                 <h1>Your attention, measured clearly.</h1>
-                <p>Track camera and screen signals, tune your own labels, and compare each focus session over time.</p>
+                <p>Runs entirely in your browser — camera and screen never leave your machine. Track signals, tune your
+                    own labels, and compare every focus session.</p>
             </div>
             <div class="hero-metrics">
                 <div>
@@ -65,7 +75,10 @@
                         <span class="card-title">Live Feed</span>
                     </div>
                     <div class="camera-wrap">
-                        <img id="camera-feed" class="camera-feed" alt="Camera feed" style="display:none;">
+                        <div id="camera-live" class="camera-live" style="display:none;">
+                            <video id="camera-video" class="camera-video" autoplay playsinline muted></video>
+                            <canvas id="camera-overlay" class="camera-overlay"></canvas>
+                        </div>
 
                         <div class="feed-hud" id="feed-hud" style="display:none;">
                             <div class="detection-item">
@@ -113,7 +126,7 @@
                                 </div>
                             </div>
                             <label class="toggle-switch">
-                                <input type="checkbox" id="camera-toggle" checked onchange="toggleCamera()">
+                                <input type="checkbox" id="camera-toggle" checked>
                                 <span class="toggle-track"></span>
                             </label>
                         </div>
@@ -122,14 +135,16 @@
                                 <div class="toggle-icon">OCR</div>
                                 <div class="toggle-text">
                                     <div class="label">Screen Detection</div>
-                                    <div class="sublabel">Content classification and custom labels</div>
+                                    <div class="sublabel">Share a screen to classify what's on it</div>
                                 </div>
                             </div>
                             <label class="toggle-switch">
-                                <input type="checkbox" id="screen-toggle" checked onchange="toggleScreen()">
+                                <input type="checkbox" id="screen-toggle" checked>
                                 <span class="toggle-track"></span>
                             </label>
                         </div>
+                        <button class="btn-share-screen" id="share-screen-btn" style="display:none;">Share your
+                            screen</button>
                     </div>
                 </section>
 
@@ -142,22 +157,21 @@
                                 Active — <span id="override-countdown">5:00</span>
                             </span>
                         </div>
-                        <button class="btn-clear-override" id="btn-clear-override" onclick="clearOverride()"
-                            style="display:none;">Clear</button>
+                        <button class="btn-clear-override" id="btn-clear-override" style="display:none;">Clear</button>
                     </div>
                     <div class="override-body">
                         <p class="override-hint">Correct the AI if it misclassified your current state. Override lasts 5
                             minutes.</p>
                         <div class="override-options">
-                            <button class="override-btn productive-override" onclick="setOverride('Productive')">
+                            <button class="override-btn productive-override">
                                 <span class="override-btn-dot productive-dot"></span>
                                 Productive
                             </button>
-                            <button class="override-btn neutral-override" onclick="setOverride('Neutral')">
+                            <button class="override-btn neutral-override">
                                 <span class="override-btn-dot neutral-dot"></span>
                                 Neutral
                             </button>
-                            <button class="override-btn distracted-override" onclick="setOverride('Distracted')">
+                            <button class="override-btn distracted-override">
                                 <span class="override-btn-dot distracted-dot"></span>
                                 Distracted
                             </button>
@@ -244,7 +258,7 @@
                     <div class="chips-container" id="productive-chips"></div>
                     <div class="label-input-row">
                         <input class="label-input" id="productive-input" placeholder="GitHub, Notion, VS Code">
-                        <button class="btn-add productive-add" onclick="addLabel('productive')">Add</button>
+                        <button class="btn-add productive-add" data-add="productive">Add</button>
                     </div>
                 </div>
                 <div class="labels-group">
@@ -255,14 +269,14 @@
                     <div class="chips-container" id="distracted-chips"></div>
                     <div class="label-input-row">
                         <input class="label-input" id="distracted-input" placeholder="Reddit, TikTok, Twitter">
-                        <button class="btn-add distracted-add" onclick="addLabel('distracted')">Add</button>
+                        <button class="btn-add distracted-add" data-add="distracted">Add</button>
                     </div>
                 </div>
             </div>
         </section>
     </main>
 
-    <script src="/script.js"></script>
+    <script type="module" src="app.js"></script>
 </body>
 
 </html>

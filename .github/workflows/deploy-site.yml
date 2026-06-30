@@ -1,13 +1,16 @@
-name: Deploy landing site
+name: Deploy site & app
 
-# Builds the Doxygen-generated landing page and publishes it to GitHub Pages,
-# so the site is just a link: https://<owner>.github.io/<repo>/
+# Builds the Doxygen landing page AND bundles the in-browser MindLens app, then
+# publishes both to GitHub Pages:
+#   landing page -> https://<owner>.github.io/<repo>/
+#   the app      -> https://<owner>.github.io/<repo>/app/
 
 on:
   push:
     branches: [main, master]
     paths:
       - 'docs/**'
+      - 'website/**'
       - '.github/workflows/deploy-site.yml'
   workflow_dispatch:
 
@@ -31,11 +34,13 @@ jobs:
       - name: Install Doxygen + Graphviz
         run: sudo apt-get update && sudo apt-get install -y doxygen graphviz
 
-      - name: Point download buttons at this repo
-        run: sed -i "s#Bal207/MindLens#${GITHUB_REPOSITORY}#g; s#YOUR_GITHUB_USERNAME/MindLens#${GITHUB_REPOSITORY}#g" docs/landing.js
-
       - name: Build site with Doxygen
         run: cd docs && doxygen Doxyfile
+
+      - name: Bundle the in-browser app at /app
+        run: |
+          mkdir -p docs/html/app
+          cp -R website/. docs/html/app/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

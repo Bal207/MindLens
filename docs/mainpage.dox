@@ -17,7 +17,7 @@
             <a href="#how">How it works</a>
             <a href="#privacy">Privacy</a>
         </div>
-        <a class="nav-cta" href="#download">Download</a>
+        <a class="nav-cta" href="app/" data-launch>Launch app</a>
     </div>
 </nav>
 
@@ -25,20 +25,20 @@
 <header class="hero" id="top">
     <div class="hero-glow"></div>
     <div class="hero-content reveal">
-        <div class="hero-eyebrow">Now for macOS, Windows &amp; Linux</div>
+        <div class="hero-eyebrow">Runs right in your browser &middot; nothing to install</div>
         <h1 class="hero-title">See your focus.</h1>
         <p class="hero-sub">
             MindLens watches your camera and screen &mdash; entirely on your own machine &mdash;
             and shows you exactly where your attention goes. No accounts. No cloud. Just clarity.
         </p>
         <div class="hero-actions">
-            <a class="btn-primary" href="#download" id="hero-download">
-                <span class="btn-primary-label">Download</span>
-                <span class="btn-primary-os" id="hero-download-os">Free</span>
+            <a class="btn-primary" href="app/" id="hero-launch" data-launch>
+                <span class="btn-primary-label">Launch MindLens</span>
+                <span class="btn-primary-os">Free</span>
             </a>
             <a class="btn-ghost" href="#how">See how it works &darr;</a>
         </div>
-        <div class="hero-meta">Free &amp; open &middot; Runs offline &middot; Under a second to start</div>
+        <div class="hero-meta">Free &amp; open &middot; 100% on-device &middot; No download required</div>
     </div>
 
     <!-- App mockup -->
@@ -201,31 +201,17 @@
 <section class="download" id="download">
     <div class="download-inner reveal">
         <h2>Ready when you are.</h2>
-        <p class="download-sub">One click. No sign-up. Pick your platform and start seeing your focus.</p>
+        <p class="download-sub">No install, no sign-up. Open the app and start seeing your focus &mdash; it all runs on your machine.</p>
 
-        <a class="btn-download" id="primary-download" href="#" target="_blank" rel="noopener">
-            <span class="btn-download-icon" id="primary-download-icon">&#8595;</span>
+        <a class="btn-download" href="app/" data-launch>
+            <span class="btn-download-icon">&#9678;</span>
             <span class="btn-download-text">
-                <strong id="primary-download-label">Download MindLens</strong>
-                <small id="primary-download-note">Detecting your platform&hellip;</small>
+                <strong>Launch MindLens</strong>
+                <small>Runs in your browser &middot; camera &amp; screen stay on-device</small>
             </span>
         </a>
 
-        <div class="os-links" id="os-links">
-            <a data-os="mac" href="#">macOS</a>
-            <a data-os="windows" href="#">Windows</a>
-            <a data-os="linux" href="#">Linux</a>
-        </div>
-        <p class="download-fine">Free &amp; open source &middot; macOS 11+, Windows 10+, modern Linux</p>
-
-        <div class="mac-note" id="mac-note" hidden>
-            <p><strong>Opening on macOS the first time:</strong> right-click <em>MindLens</em> in your Applications or Downloads, choose <strong>Open</strong>, then <strong>Open</strong> again. macOS only asks once.</p>
-            <p class="mac-note-alt">Still blocked or says &ldquo;damaged&rdquo;? Paste this in Terminal:</p>
-            <div class="mac-cmd-row">
-                <code id="mac-cmd">xattr -dr com.apple.quarantine /Applications/MindLens.app</code>
-                <button class="mac-copy" type="button" id="mac-copy">Copy</button>
-            </div>
-        </div>
+        <p class="download-fine">Free &amp; open source &middot; Works in Chrome, Edge &amp; other Chromium browsers</p>
     </div>
 </section>
 

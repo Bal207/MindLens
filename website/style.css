@@ -1152,3 +1152,61 @@ input {
         grid-template-columns: 1fr;
     }
 }
+/* ============================================================
+   In-browser app additions (camera video/overlay, screen share)
+   ============================================================ */
+.logo-icon-img {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    display: block;
+}
+
+/* Live camera: a <video> with a detection-box <canvas> layered on top.
+   Both are mirrored so the preview reads like a natural selfie view. */
+.camera-live {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.camera-video,
+.camera-overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+}
+
+.camera-overlay {
+    z-index: 4;
+    pointer-events: none;
+}
+
+/* Share-screen button lives under the detection toggles. */
+.btn-share-screen {
+    margin-top: 4px;
+    width: 100%;
+    padding: 11px 16px;
+    border: 1px solid var(--panel-border, rgba(255, 255, 255, 0.12));
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(110, 139, 255, 0.18), rgba(176, 107, 255, 0.14));
+    color: #eef0ff;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: filter 0.18s ease, background 0.18s ease;
+}
+
+.btn-share-screen:hover {
+    filter: brightness(1.12);
+}
+
+.btn-share-screen.is-sharing {
+    background: rgba(255, 107, 107, 0.16);
+    border-color: rgba(255, 107, 107, 0.4);
+    color: #ffd7d7;
+}
