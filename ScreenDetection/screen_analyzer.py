@@ -85,7 +85,7 @@ class ScreenAnalyzer:
             "developer.mozilla.org", "w3schools.com", "freecodecamp.org", "codecademy.com",
             "kaggle.com", "huggingface.co", "vs code", "visual studio code", "pycharm",
             "intellij", "webstorm", "cursor editor", "jupyter notebook", "google colab",
-            "copilot", "chatgpt", "claude.ai", "gemini.google", "postman", "insomnia",
+            "copilot", "chatgpt", "gemini.google", "postman", "insomnia",
 
             "calculator", "desmos.com", "wolframalpha.com", "wolfram alpha",
             "geogebra.org", "symbolab.com", "mathway.com", "overleaf.com", "arxiv.org",
@@ -231,7 +231,7 @@ class ScreenAnalyzer:
             "khan academy", "khanacademy", "coursera", "edx.org", "udemy",
             "quizlet", "brilliant.org", "canvas", "blackboard", "moodle",
             "gradescope", "piazza", "instructure", "chegg", "wikipedia",
-            "chatgpt", "claude.ai", "gemini.google", "copilot", "perplexity",
+            "chatgpt", "gemini.google", "copilot", "perplexity",
             "jira", "trello", "asana", "linear.app", "confluence", "figma",
             "miro.com", "lucidchart", "autocad", "solidworks",
         }

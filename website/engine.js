@@ -502,7 +502,7 @@ class ScreenClassifier {
             "wolfram alpha", "geogebra", "symbolab", "khan academy", "khanacademy",
             "coursera", "edx.org", "udemy", "quizlet", "brilliant.org", "canvas",
             "blackboard", "moodle", "gradescope", "piazza", "instructure", "chegg",
-            "wikipedia", "chatgpt", "claude.ai", "gemini.google", "copilot",
+            "wikipedia", "chatgpt", "gemini.google", "copilot",
             "perplexity", "jira", "trello", "asana", "linear.app", "confluence",
             "figma", "miro.com", "lucidchart", "autocad", "solidworks",
         ]);
