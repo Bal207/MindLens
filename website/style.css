@@ -1251,3 +1251,100 @@ input {
     font-weight: 600;
     color: var(--text-dim, #a1a1aa);
 }
+
+/* ============================================================================
+   Professional polish & smoothing layer
+   Appended last so it refines the components above without touching their
+   structure: tabular numerals (no width jitter), smooth state transitions,
+   hover depth, softer radii, custom scrollbars, tasteful entrance, and a
+   reduced-motion guard.
+   ============================================================================ */
+
+/* Numbers that animate get tabular figures so their width never jumps. */
+#donut-value, #focus-score, #saved-count, #override-countdown,
+.focus-stat-value, .hero-metrics strong, .history-score, .detection-value,
+.timer-value {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+}
+
+/* Smooth colour / state / elevation changes across interactive surfaces. */
+.status-badge, .status-dot, .btn-session, .btn-share-screen, .btn-add,
+.timer-card, .timer-value, .donut-center span, .detection-value, .focus-stat,
+.override-btn, .chip, .panel, .history-row, .vision-status {
+    transition: color .32s ease, background-color .32s ease, border-color .32s ease,
+        box-shadow .32s ease, transform .2s cubic-bezier(.22, 1, .36, 1);
+}
+
+/* Softer, more premium radii. */
+.panel, .hero-panel { border-radius: 15px; }
+.timer-card, .focus-stat, .toggle-row, .history-row, .camera-card { border-radius: 13px; }
+.btn-session, .btn-share-screen { border-radius: 11px; }
+.camera-wrap { border-radius: 0 0 14px 14px; }
+
+/* Panels: a touch of depth, and a subtle hover lift for a tactile feel. */
+.panel {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04), 0 10px 34px rgba(0, 0, 0, .28);
+}
+.panel:hover { border-color: var(--line-strong); }
+.timer-card:hover, .focus-stat:hover {
+    transform: translateY(-1px);
+    border-color: var(--line-strong);
+}
+
+/* Consistent button press feedback. */
+.btn-share-screen:hover { transform: translateY(-1px); }
+.btn-session:active, .btn-share-screen:active,
+.override-btn:active, .btn-add:active { transform: translateY(0) scale(.985); }
+
+/* Accessible focus rings. */
+:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+    border-radius: 8px;
+}
+button:focus:not(:focus-visible) { outline: none; }
+
+/* Refined, unobtrusive scrollbars. */
+* { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .16) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, .14);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, .26); background-clip: padding-box; }
+
+/* Gentle staggered entrance on first paint (runs once, not on updates). */
+@keyframes ml-rise {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: none; }
+}
+.hero-panel, .workspace-grid > div > .panel, .labels-panel {
+    animation: ml-rise .5s cubic-bezier(.22, 1, .36, 1) both;
+}
+.workspace-grid > .left-stack > .panel:nth-child(2) { animation-delay: .05s; }
+.workspace-grid > .left-stack > .panel:nth-child(3) { animation-delay: .1s; }
+.workspace-grid > .right-stack > .panel:nth-child(2) { animation-delay: .08s; }
+.workspace-grid > .right-stack > .panel:nth-child(3) { animation-delay: .13s; }
+.labels-panel { animation-delay: .16s; }
+
+/* HUD activity value: fade smoothly as it changes. */
+.detection-value { will-change: color; }
+
+/* Live status pulse on the running dot for a polished "it's alive" cue. */
+@keyframes ml-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+    50% { box-shadow: 0 0 10px 1px currentColor; opacity: .82; }
+}
+.status-badge.productive .status-dot,
+.status-badge.distracted .status-dot { animation: ml-pulse 2s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: .001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .001ms !important;
+    }
+}

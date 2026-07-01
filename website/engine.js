@@ -387,15 +387,25 @@ class ScreenClassifier {
 
         this.ignore_terms = new Set([
             "mindlens", "live focus workspace", "focus score", "saved sessions",
-            "camera feed", "session analytics", "previous sessions", "custom labels",
-            "camera detection", "screen detection", "productive", "distracted",
-            "neutral", "total session", "override detection",
+            "camera feed", "live feed", "session analytics", "previous sessions",
+            "custom labels", "camera detection", "screen detection", "productive",
+            "distracted", "neutral", "total session", "override detection",
+            "state override", "detection", "presence & focus quality", "focus quality",
+            "longest streak", "context switches", "away / looking off", "share your screen",
+            "start session", "stop session", "clear", "see your focus",
             "dashboard", "settings", "preferences", "user profile", "account info",
             "sign in", "sign out", "login", "logout", "billing", "subscription",
             "upgrade to pro", "help center", "customer support", "terms of service",
             "privacy policy", "notifications", "app.mindlens", "mindlens.com",
             "focus mode active", "distraction blocked", "tracker daemon", "agent status",
         ]);
+        // Words that, together with "mindlens", unambiguously identify our own
+        // app/site so we can force Neutral (looking at MindLens isn't work).
+        this.mindlens_markers = [
+            "live focus workspace", "focus score", "saved sessions", "session analytics",
+            "presence & focus quality", "state override", "custom labels", "share your screen",
+            "see your focus", "focus quality",
+        ];
 
         this.productive_terms = new Set([
             "python", "javascript", "typescript", "java", "c++", "c#", "rust",
@@ -647,6 +657,13 @@ class ScreenClassifier {
     }
 
     _looksLikeDashboard(lowerText) {
+        // MindLens itself (app or landing page) is always Neutral — either a
+        // couple of distinctive markers, or a general pile of chrome terms.
+        if (lowerText.includes("mindlens")) {
+            let m = 0;
+            for (const term of this.mindlens_markers) if (lowerText.includes(term)) m += 1;
+            if (m >= 1) return true;
+        }
         let hits = 0;
         for (const term of this.ignore_terms) if (lowerText.includes(term)) hits += 1;
         return hits >= 3;
@@ -700,8 +717,10 @@ class ScreenClassifier {
         const dSite = this._siteScore(lowerText, headerLower, this.distracting_sites);
         const pSite = this._siteScore(lowerText, headerLower, this.productive_sites);
         const youtubeOpen = this._containsAny(headerLower, this.youtube_tokens) ||
+            lowerText.includes("youtube.com") || lowerText.includes("youtu.be") ||
             (lowerText.includes("youtube") &&
-                this._containsAny(lowerText, ["subscribe", "subscribers", "up next", "views", "watch later", "comments"]));
+                this._containsAny(lowerText, ["subscribe", "subscribers", "up next", "views", "watch later",
+                    "comments", "shorts", "recommended", "watch on", "likes", "share", "playlist"]));
 
         if (pSite > dSite && pSite > 0) { this._lastReason = "site"; return "Productive"; }
         if (dSite > 0 && dSite >= pSite) { this._lastReason = "site"; return "Distracted"; }
@@ -756,8 +775,11 @@ class ScreenClassifier {
         if (this._looksLikeDashboard(rawLower)) { state = "Neutral"; this._lastReason = "dashboard"; }
         else state = this._getRawState(fullText, headerText);
         const cleanedLower = this._cleanText(fullText).toLowerCase();
-        const activity = this._activityFromText(cleanedLower, (headerText || "").toLowerCase(), state, this._lastReason);
-        const decisive = ["custom", "site", "dev", "youtube"].includes(this._lastReason);
+        let activity = this._activityFromText(cleanedLower, (headerText || "").toLowerCase(), state, this._lastReason);
+        if (this._lastReason === "dashboard") activity = "MindLens";
+        // "dashboard" is decisive so the vision model can't mistake our own
+        // camera-feed UI for a video call.
+        const decisive = ["custom", "site", "dev", "youtube", "dashboard"].includes(this._lastReason);
         return { state, activity, decisive };
     }
 }
@@ -968,17 +990,20 @@ class ScreenEngine {
                 const v = await this.vision.classify(this.video, vw, vh);
                 if (v) {
                     const agrees = v.state === ocr.state;
-                    if (v.score >= 0.28) {
-                        // Confident vision verdict wins; corroboration bumps confidence.
-                        fused = { state: v.state, activity: v.activity,
-                            confidence: agrees ? Math.min(0.99, v.score + 0.1) : v.score, source: "vision" };
-                    } else if (ocr.state === "Neutral") {
-                        // OCR had nothing; take the vision guess even if weak.
-                        fused = { state: v.state, activity: v.activity, confidence: v.score, source: "vision-weak" };
-                    } else if (v.score >= 0.18 && agrees) {
-                        // Borderline vision that agrees with OCR's lean: keep the
-                        // state, adopt the richer activity label.
-                        fused = { state: ocr.state, activity: v.activity, confidence: Math.max(0.5, v.score), source: "fused" };
+                    const ocrHadLean = ocr.state !== "Neutral";
+                    if (agrees && v.score >= 0.22) {
+                        // OCR + vision concur — strongest signal.
+                        fused = { state: v.state, activity: v.activity, confidence: Math.min(0.99, v.score + 0.12), source: "vision" };
+                    } else if (!ocrHadLean && v.score >= 0.22) {
+                        // OCR had nothing; trust a reasonably confident vision guess.
+                        fused = { state: v.state, activity: v.activity, confidence: v.score, source: "vision" };
+                    } else if (ocrHadLean && !agrees && v.score >= 0.45) {
+                        // They disagree and OCR had an opinion — only let a *very*
+                        // confident vision verdict override it, else keep OCR.
+                        fused = { state: v.state, activity: v.activity, confidence: v.score, source: "vision" };
+                    } else if (ocrHadLean && agrees) {
+                        // Weak but agreeing — keep OCR state, adopt richer activity.
+                        fused = { state: ocr.state, activity: v.activity, confidence: Math.max(0.55, v.score), source: "fused" };
                     }
                 }
             } catch (e) { /* vision hiccup; keep OCR verdict */ }
@@ -987,7 +1012,7 @@ class ScreenEngine {
         // Smooth over the last few readings (majority state; activity from the
         // most recent sample matching the winning state).
         this._recent.push(fused);
-        if (this._recent.length > 4) this._recent.shift();
+        if (this._recent.length > 5) this._recent.shift();
         const counts = {};
         let best = fused.state, bestN = 0;
         for (const r of this._recent) { counts[r.state] = (counts[r.state] || 0) + 1; if (counts[r.state] > bestN) { bestN = counts[r.state]; best = r.state; } }
