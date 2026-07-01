@@ -21,6 +21,9 @@
 // CDN hiccup can never take down the whole dashboard at module-load time.
 const TASKS_VISION_URL =
     "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/vision_bundle.mjs";
+// transformers.js (v3, WebGPU-capable) powers the on-device CLIP screen model.
+const TRANSFORMERS_URL =
+    "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3";
 
 const HAND_MODEL_URL =
     "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task";
@@ -142,13 +145,17 @@ class CameraEngine {
         this.objectModel = null;
         this.stream = null;
         this.running = false;
-        this.state = "Idle";
+        this.state = "Idle";        // object/pose state (phone / study / read) — drives scoring
+        this.action = "Idle";       // richer presence action for display + metrics
+        this.facePresent = false;
         this.cachedObjects = [];
         this.cachedObjectsTs = 0;
         this.TARGET_AI_FPS = 8;
         this.BOX_STALE_SEC = 0.8;
         this._loadingPromise = null;
         this._lastVideoTs = -1;
+        this._mouthHistory = [];     // {t, open} for speaking detection
+        this._faceMissingSince = 0;
     }
 
     async _loadModels() {
@@ -203,6 +210,10 @@ class CameraEngine {
         const ctx = this.overlay.getContext("2d");
         ctx.clearRect(0, 0, this.overlay.width, this.overlay.height);
         this.state = "Camera Off";
+        this.action = "Camera Off";
+        this.facePresent = false;
+        this._mouthHistory = [];
+        this._faceMissingSince = 0;
     }
 
     _detectObjects(predictions) {
@@ -223,6 +234,9 @@ class CameraEngine {
         let isPinching = false;
         let chinY = vh / 2;
         let headDown = false;
+        let facePresent = false;
+        let yawRatio = 0;   // -1..1, magnitude = how far the head is turned
+        let mouthOpen = 0;  // normalized lip separation
 
         const handRes = this.handLandmarker.detectForVideo(this.video, timestamp);
         for (const lms of handRes.landmarks || []) {
@@ -237,6 +251,7 @@ class CameraEngine {
 
         const faceRes = this.faceLandmarker.detectForVideo(this.video, timestamp);
         if (faceRes.faceLandmarks && faceRes.faceLandmarks.length) {
+            facePresent = true;
             const face = faceRes.faceLandmarks[0];
             const forehead = face[10], chin = face[152], nose = face[1];
             chinY = chin.y * vh;
@@ -245,8 +260,52 @@ class CameraEngine {
                 const ratio = (chin.y - nose.y) / faceHeight;
                 if (ratio < 0.36) headDown = true;
             }
+            // Head yaw: nose x offset from the midpoint of the two cheek edges,
+            // normalized by half the face width. Large magnitude = looking aside.
+            const rCheek = face[234], lCheek = face[454];
+            const center = (rCheek.x + lCheek.x) / 2;
+            const halfW = Math.abs(lCheek.x - rCheek.x) / 2 || 1;
+            yawRatio = (nose.x - center) / halfW;
+            // Mouth openness (upper vs lower inner lip), normalized by face height.
+            const upperLip = face[13], lowerLip = face[14];
+            if (faceHeight > 0) mouthOpen = Math.abs(lowerLip.y - upperLip.y) / faceHeight;
         }
-        return { handCoords, isPinching, headDown, chinY };
+        return { handCoords, isPinching, headDown, chinY, facePresent, yawRatio, mouthOpen };
+    }
+
+    // Merge the object/pose state with presence cues into a display action.
+    _updateAction(objectState, pose) {
+        const now = performance.now() / 1000;
+
+        // Speaking: sustained mouth-openness variation over a short window.
+        this._mouthHistory.push({ t: now, open: pose.mouthOpen });
+        while (this._mouthHistory.length && this._mouthHistory[0].t < now - 1.5) this._mouthHistory.shift();
+        let speaking = false;
+        if (pose.facePresent && this._mouthHistory.length >= 4) {
+            const opens = this._mouthHistory.map((h) => h.open);
+            if (Math.max(...opens) - Math.min(...opens) > 0.035) speaking = true;
+        }
+
+        // Absence: require a couple of seconds of no face to call it "Away".
+        if (!pose.facePresent) {
+            if (!this._faceMissingSince) this._faceMissingSince = now;
+        } else {
+            this._faceMissingSince = 0;
+        }
+        const away = this._faceMissingSince && now - this._faceMissingSince > 2;
+        const lookingAway = pose.facePresent && Math.abs(pose.yawRatio) > 0.55;
+
+        this.facePresent = pose.facePresent;
+
+        // Precedence, most-actionable first.
+        if (objectState === "Actively Using Phone") this.action = "On phone";
+        else if (away) this.action = "Away";
+        else if (lookingAway) this.action = "Looking away";
+        else if (objectState === "Studying / Writing") this.action = "Writing";
+        else if (objectState === "Reading") this.action = "Reading";
+        else if (speaking) this.action = "Speaking";
+        else if (pose.facePresent) this.action = "Focused";
+        else this.action = "Idle";
     }
 
     async _aiLoop() {
@@ -262,8 +321,9 @@ class CameraEngine {
 
                     const predictions = await this.objectModel.detect(this.video);
                     const objects = this._detectObjects(predictions);
-                    const { handCoords, isPinching, headDown, chinY } = this._pose(ts);
-                    this.state = this.analyzer.analyze(objects, handCoords, isPinching, headDown, chinY);
+                    const pose = this._pose(ts);
+                    this.state = this.analyzer.analyze(objects, pose.handCoords, pose.isPinching, pose.headDown, pose.chinY);
+                    this._updateAction(this.state, pose);
                     this.cachedObjects = objects;
                     this.cachedObjectsTs = performance.now();
                 } catch (e) {
@@ -484,11 +544,54 @@ class ScreenClassifier {
             "full match", "edit)", "amv",
         ]);
 
+        // ── Activity categories ─────────────────────────────────────────────
+        // Used to report a granular activity (Coding, Meeting, Email…) on top of
+        // the productive/distracted verdict. Checked against OCR'd site/app text.
+        this.meeting_sites = new Set([
+            "zoom.us", "zoom meeting", "meet.google", "google meet", "teams.microsoft",
+            "microsoft teams", "webex", "gotomeeting", "whereby", "bluejeans",
+            "join meeting", "leave meeting", "mute", "unmute", "start video", "stop video",
+            "participants", "raise hand", "share screen", "you are muted", "recording…",
+        ]);
+        this.coding_sites = new Set([
+            "github", "gitlab", "bitbucket", "stack overflow", "stackoverflow", "leetcode",
+            "hackerrank", "codeforces", "geeksforgeeks", "codecademy", "freecodecamp",
+            "replit", "codepen", "codesandbox", "jsfiddle", "visual studio code", "vs code",
+            "pycharm", "intellij", "webstorm", "android studio", "xcode", "jupyter",
+            "google colab", "developer.mozilla", "mdn web docs", "w3schools", "readthedocs",
+        ]);
+        this.writing_sites = new Set([
+            "google docs", "docs.google", "notion.so", "notion", "obsidian", "onenote",
+            "overleaf", "word", "pages", "confluence", "quip", "dropbox paper",
+        ]);
+        this.email_sites = new Set([
+            "gmail", "outlook", "mail.google", "proton mail", "protonmail", "yahoo mail",
+            "inbox", "compose", "outlook.office",
+        ]);
+        this.video_sites = new Set([
+            "youtube", "netflix", "hulu", "disney+", "disneyplus", "prime video", "hbo max",
+            "max.com", "peacock", "paramount+", "twitch", "crunchyroll", "vimeo", "dailymotion",
+        ]);
+        this.social_sites = new Set([
+            "tiktok", "instagram", "reddit", "twitter", "x.com", "facebook", "snapchat",
+            "pinterest", "tumblr", "threads", "bluesky", "mastodon", "discord",
+        ]);
+        this.gaming_sites = new Set([
+            "roblox", "minecraft", "fortnite", "steampowered", "steamcommunity", "epic games",
+            "battle.net", "valorant", "league of legends", "genshin", "call of duty",
+            "warzone", "overwatch", "apex legends", "xbox", "playstation",
+        ]);
+        this.shopping_sites = new Set([
+            "amazon.com", "ebay", "aliexpress", "temu", "shein", "etsy", "walmart",
+            "target.com", "wayfair", "asos", "add to cart", "add to bag", "checkout",
+        ]);
+
         this._productiveMatcher = this._compileMatcher(this.productive_terms);
         this._distractedMatcher = this._compileMatcher(this.distracted_terms);
 
         this.customProductive = [];
         this.customDistracted = [];
+        this._lastReason = "none";
     }
 
     setLabels(productive, distracted) {
@@ -587,11 +690,11 @@ class ScreenClassifier {
         const lowerText = cleaned.toLowerCase();
         const headerLower = (headerText || "").toLowerCase();
 
-        if (lowerText.trim().length < 10) return "Neutral";
+        if (lowerText.trim().length < 10) { this._lastReason = "sparse"; return "Neutral"; }
 
         // 1. Custom labels win (distracted checked first).
-        if (this._containsAny(lowerText, this.customDistracted)) return "Distracted";
-        if (this._containsAny(lowerText, this.customProductive)) return "Productive";
+        if (this._containsAny(lowerText, this.customDistracted)) { this._lastReason = "custom"; return "Distracted"; }
+        if (this._containsAny(lowerText, this.customProductive)) { this._lastReason = "custom"; return "Productive"; }
 
         // 2. Site / app identity dominates.
         const dSite = this._siteScore(lowerText, headerLower, this.distracting_sites);
@@ -600,72 +703,184 @@ class ScreenClassifier {
             (lowerText.includes("youtube") &&
                 this._containsAny(lowerText, ["subscribe", "subscribers", "up next", "views", "watch later", "comments"]));
 
-        if (pSite > dSite && pSite > 0) return "Productive";
-        if (dSite > 0 && dSite >= pSite) return "Distracted";
-        if (youtubeOpen) return this._classifyYoutube(headerLower, lowerText);
+        if (pSite > dSite && pSite > 0) { this._lastReason = "site"; return "Productive"; }
+        if (dSite > 0 && dSite >= pSite) { this._lastReason = "site"; return "Distracted"; }
+        if (youtubeOpen) { this._lastReason = "youtube"; return this._classifyYoutube(headerLower, lowerText); }
 
         // 3. Unambiguous coding / CLI activity.
-        if (this._containsAny(lowerText, this.dev_activity)) return "Productive";
-        for (const marker of this.coding_markers) if (marker.test(fullText)) return "Productive";
+        if (this._containsAny(lowerText, this.dev_activity)) { this._lastReason = "dev"; return "Productive"; }
+        for (const marker of this.coding_markers) if (marker.test(fullText)) { this._lastReason = "dev"; return "Productive"; }
         const totalChars = lowerText.replace(/ /g, "").length;
         if (totalChars >= 20) {
             let special = 0;
             for (const c of lowerText) if ("{}[]=;<>".includes(c)) special += 1;
-            if (special / totalChars > 0.08) return "Productive";
+            if (special / totalChars > 0.08) { this._lastReason = "dev"; return "Productive"; }
         }
 
         // 4. Weighted general keywords (header double-counted), ties -> Distracted.
         const productiveHits = this._countHits(lowerText, this._productiveMatcher) + this._countHits(headerLower, this._productiveMatcher);
         const distractedHits = this._countHits(lowerText, this._distractedMatcher) + this._countHits(headerLower, this._distractedMatcher);
-        if (productiveHits || distractedHits) return productiveHits > distractedHits ? "Productive" : "Distracted";
+        if (productiveHits || distractedHits) { this._lastReason = "keywords"; return productiveHits > distractedHits ? "Productive" : "Distracted"; }
 
-        // 5. No zero-shot fallback in-browser: a text-heavy screen with no
-        //    decisive signal is treated as active work rather than collapsing to
-        //    Neutral; only a sparse screen stays Neutral.
+        // 5. No decisive text signal — leave the verdict to the vision model.
+        this._lastReason = lowerText.length >= 200 ? "textheavy" : "sparse";
         return lowerText.length >= 200 ? "Productive" : "Neutral";
     }
 
-    classify(fullText, headerText) {
+    // Granular activity from OCR'd text + which branch decided the verdict.
+    _activityFromText(lowerText, headerLower, state, reason) {
+        const t = headerLower + " " + lowerText;
+        const hit = (set) => { for (const s of set) if (t.includes(s)) return true; return false; };
+        if (hit(this.meeting_sites)) return "Meeting";
+        if (reason === "dev" || hit(this.coding_sites)) return "Coding";
+        if (hit(this.email_sites)) return "Email";
+        if (hit(this.writing_sites)) return "Writing";
+        if (reason === "youtube") return state === "Productive" ? "Educational video" : "Watching video";
+        if (hit(this.video_sites)) return "Watching video";
+        if (hit(this.social_sites)) return "Social media";
+        if (hit(this.gaming_sites)) return "Gaming";
+        if (hit(this.shopping_sites)) return "Shopping";
+        if (state === "Productive") return "Working";
+        if (state === "Distracted") return "Distracted";
+        return "Idle";
+    }
+
+    // One-shot OCR analysis (no smoothing — the ScreenEngine fuses + smooths).
+    // Returns { state, activity, decisive }. `decisive` means the verdict came
+    // from a high-precision signal (custom label / site identity / dev activity
+    // / YouTube title) that should outrank the vision model.
+    analyze(fullText, headerText) {
         const rawLower = fullText.toLowerCase();
-        let rawState;
-        if (this._looksLikeDashboard(rawLower)) rawState = "Neutral";
-        else rawState = this._getRawState(fullText, headerText);
-
-        this.state_history.push(rawState);
-        if (this.state_history.length > this.history_len) this.state_history.shift();
-
-        const counts = {};
-        let best = this.state_history[0], bestN = 0;
-        for (const s of this.state_history) { counts[s] = (counts[s] || 0) + 1; if (counts[s] > bestN) { bestN = counts[s]; best = s; } }
-        return best;
+        this._lastReason = "none";
+        let state;
+        if (this._looksLikeDashboard(rawLower)) { state = "Neutral"; this._lastReason = "dashboard"; }
+        else state = this._getRawState(fullText, headerText);
+        const cleanedLower = this._cleanText(fullText).toLowerCase();
+        const activity = this._activityFromText(cleanedLower, (headerText || "").toLowerCase(), state, this._lastReason);
+        const decisive = ["custom", "site", "dev", "youtube"].includes(this._lastReason);
+        return { state, activity, decisive };
     }
 }
 
 /* ========================================================================== */
-/*  ScreenEngine — getDisplayMedia + Tesseract.js                              */
+/*  ScreenVision — on-device CLIP zero-shot image classification               */
+/*                                                                             */
+/*  Recognizes *what a screen is* semantically (code editor, video call, docs, */
+/*  YouTube, social, game…) rather than relying on OCR text alone. This is the  */
+/*  piece that lets screen detection work on things OCR can't read — e.g. a     */
+/*  video-call grid during an interview.                                        */
+/* ========================================================================== */
+
+// Prompt -> granular activity + productive/distracted mapping. CLIP scores the
+// screenshot against each prompt; the highest wins.
+const CLIP_LABELS = [
+    { label: "a code editor or IDE showing source code", activity: "Coding", state: "Productive" },
+    { label: "a terminal or command-line console", activity: "Terminal", state: "Productive" },
+    { label: "a video call or online meeting with webcam tiles", activity: "Meeting", state: "Productive" },
+    { label: "software documentation or a technical article", activity: "Reading", state: "Productive" },
+    { label: "a text document or word processor being written", activity: "Writing", state: "Productive" },
+    { label: "an email inbox", activity: "Email", state: "Productive" },
+    { label: "a spreadsheet with rows and columns", activity: "Spreadsheet", state: "Productive" },
+    { label: "a slide presentation being edited", activity: "Slides", state: "Productive" },
+    { label: "a design or diagramming tool", activity: "Design", state: "Productive" },
+    { label: "a streaming video or YouTube player", activity: "Watching video", state: "Distracted" },
+    { label: "a social media feed", activity: "Social media", state: "Distracted" },
+    { label: "a video game being played", activity: "Gaming", state: "Distracted" },
+    { label: "an online shopping store", activity: "Shopping", state: "Distracted" },
+    { label: "an instant messaging chat app", activity: "Chatting", state: "Neutral" },
+    { label: "an empty desktop or home screen", activity: "Idle", state: "Neutral" },
+];
+
+class ScreenVision {
+    constructor() {
+        this.classifier = null;
+        this.ready = false;
+        this.loading = false;
+        this.failed = false;
+        this.device = null;
+        this._smallCanvas = document.createElement("canvas");
+    }
+
+    // status: 'off' | 'loading' | 'ready' | 'failed'
+    get status() {
+        if (this.ready) return "ready";
+        if (this.loading) return "loading";
+        if (this.failed) return "failed";
+        return "off";
+    }
+
+    async load() {
+        if (this.ready || this.loading) return;
+        this.loading = true;
+        try {
+            const { pipeline, env } = await import(TRANSFORMERS_URL);
+            env.allowLocalModels = false;
+            const build = (device, dtype) => pipeline(
+                "zero-shot-image-classification", "Xenova/clip-vit-base-patch32", { device, dtype });
+            try {
+                if (navigator.gpu) { this.classifier = await build("webgpu", "fp16"); this.device = "webgpu"; }
+                else throw new Error("no-webgpu");
+            } catch (_) {
+                this.classifier = await build("wasm", "q8"); this.device = "wasm";
+            }
+            this.ready = true;
+        } catch (e) {
+            this.failed = true;
+            console.warn("[MindLens] CLIP vision model unavailable; falling back to OCR only:", e);
+        } finally {
+            this.loading = false;
+        }
+    }
+
+    // Classify a source <video>/<canvas>; returns { activity, state, score } or null.
+    async classify(source, sw, sh) {
+        if (!this.ready) return null;
+        // Downscale to keep the data-url small; CLIP resizes to 224 internally.
+        const w = 384, h = Math.max(1, Math.round((sh / sw) * 384));
+        this._smallCanvas.width = w;
+        this._smallCanvas.height = h;
+        this._smallCanvas.getContext("2d").drawImage(source, 0, 0, w, h);
+        const url = this._smallCanvas.toDataURL("image/jpeg", 0.85);
+        const out = await this.classifier(url, CLIP_LABELS.map((l) => l.label),
+            { hypothesis_template: "a screenshot of {}" });
+        const top = Array.isArray(out) ? out[0] : out;
+        if (!top) return null;
+        const meta = CLIP_LABELS.find((l) => l.label === top.label) || {};
+        return { activity: meta.activity || "Unknown", state: meta.state || "Neutral", score: top.score || 0 };
+    }
+}
+
+/* ========================================================================== */
+/*  ScreenEngine — getDisplayMedia + OCR + CLIP fusion                          */
 /* ========================================================================== */
 class ScreenEngine {
     constructor() {
-        this.SCREEN_INTERVAL_SEC = 8;
+        this.SCREEN_INTERVAL_SEC = 5;
         this.classifier = new ScreenClassifier();
+        this.vision = new ScreenVision();
         this.video = document.createElement("video");
         this.video.muted = true;
         this.canvas = document.createElement("canvas");
+        this.stripCanvas = document.createElement("canvas");
         this.stream = null;
         this.worker = null;
         this.running = false;
         this.state = "Neutral";
+        this.activity = "Idle";
+        this.confidence = 0;
+        this.source = "ocr";
+        this._recent = [];
         this._busy = false;
     }
 
     isSharing() { return !!this.stream; }
+    get visionStatus() { return this.isSharing() ? this.vision.status : "off"; }
 
     async start() {
         this.stream = await navigator.mediaDevices.getDisplayMedia({
-            video: { frameRate: 1 },
+            video: { frameRate: 2 },
             audio: false,
         });
-        // If the user stops sharing via the browser's own control, clean up.
         this.stream.getVideoTracks()[0].addEventListener("ended", () => this.stop());
         this.video.srcObject = this.stream;
         await this.video.play();
@@ -674,7 +889,11 @@ class ScreenEngine {
             // eslint-disable-next-line no-undef
             this.worker = await Tesseract.createWorker("eng");
         }
+        // Load the vision model in the background so OCR works immediately and
+        // CLIP joins the fusion once it's downloaded/compiled.
+        this.vision.load();
         this.classifier.reset();
+        this._recent = [];
         this.running = true;
         this._loop();
     }
@@ -684,38 +903,86 @@ class ScreenEngine {
         if (this.stream) { this.stream.getTracks().forEach((t) => t.stop()); this.stream = null; }
         this.video.srcObject = null;
         this.state = "Screen Off";
+        this.activity = "Idle";
     }
 
     setLabels(p, d) { this.classifier.setLabels(p, d); }
 
-    async _grabAndClassify() {
-        const vw = this.video.videoWidth, vh = this.video.videoHeight;
-        if (!vw || !vh) return;
-        const maxWidth = 1600;
-        const scale = vw > maxWidth ? maxWidth / vw : 1;
-        const cw = Math.round(vw * scale), ch = Math.round(vh * scale);
-        this.canvas.width = cw;
-        this.canvas.height = ch;
-        const ctx = this.canvas.getContext("2d");
-        ctx.drawImage(this.video, 0, 0, cw, ch);
-
-        // Request blocks so per-word boxes/confidence are populated (Tesseract v5
-        // omits them by default). Fall back to flattening blocks if the flat
-        // `words` array isn't present.
-        const { data } = await this.worker.recognize(this.canvas, {}, { blocks: true });
+    // OCR a canvas region into header/body token lists split at `headerFrac`.
+    async _ocr(canvas, headerFrac) {
+        const { data } = await this.worker.recognize(canvas, {}, { blocks: true });
         let words = data.words;
         if (!words || !words.length) words = flattenWords(data);
-
-        const headerCut = ch * 0.12;
-        const headerTokens = [], bodyTokens = [];
+        const cut = canvas.height * headerFrac;
+        const header = [], body = [];
         for (const word of words) {
             if ((word.confidence || 0) <= 30) continue;
             const yTop = word.bbox ? word.bbox.y0 : 0;
-            (yTop < headerCut ? headerTokens : bodyTokens).push(word.text);
+            (yTop < cut ? header : body).push(word.text);
         }
-        const fullText = headerTokens.concat(bodyTokens).join(" ");
+        return { header, body };
+    }
+
+    async _grabAndClassify() {
+        const vw = this.video.videoWidth, vh = this.video.videoHeight;
+        if (!vw || !vh) return;
+
+        // Full frame (downscaled) for body + a coarse header split.
+        const maxWidth = 1600;
+        const scale = vw > maxWidth ? maxWidth / vw : 1;
+        const cw = Math.round(vw * scale), ch = Math.round(vh * scale);
+        this.canvas.width = cw; this.canvas.height = ch;
+        this.canvas.getContext("2d").drawImage(this.video, 0, 0, cw, ch);
+
+        // High-res, upscaled crop of the very top strip (browser tab bar / window
+        // title) where the active site names itself — the most decisive signal.
+        const stripH = Math.max(1, Math.round(vh * 0.08));
+        const sw = Math.min(vw, 2200);
+        this.stripCanvas.width = sw; this.stripCanvas.height = stripH * 2;
+        this.stripCanvas.getContext("2d").drawImage(this.video, 0, 0, vw, stripH, 0, 0, sw, stripH * 2);
+
+        const [full, strip] = await Promise.all([
+            this._ocr(this.canvas, 0.12),
+            this._ocr(this.stripCanvas, 1.0), // whole strip is header
+        ]);
+
+        const headerTokens = strip.header.concat(full.header);
+        const fullText = headerTokens.concat(full.body).join(" ");
         const headerText = headerTokens.join(" ");
-        this.state = this.classifier.classify(fullText, headerText);
+
+        // OCR verdict (precise when decisive) + CLIP verdict (semantic).
+        const ocr = this.classifier.analyze(fullText, headerText);
+        let fused = { state: ocr.state, activity: ocr.activity, confidence: ocr.decisive ? 0.9 : 0.4, source: "ocr" };
+
+        if (!ocr.decisive && this.vision.ready) {
+            try {
+                const v = await this.vision.classify(this.video, vw, vh);
+                if (v) {
+                    if (v.score >= 0.30) {
+                        fused = { state: v.state, activity: v.activity, confidence: v.score, source: "vision" };
+                    } else if (ocr.state === "Neutral") {
+                        fused = { state: v.state, activity: v.activity, confidence: v.score, source: "vision-weak" };
+                    } else if (v.state === ocr.state) {
+                        fused.activity = v.activity; // agree on state, prefer richer activity
+                        fused.confidence = Math.max(fused.confidence, v.score);
+                    }
+                }
+            } catch (e) { /* vision hiccup; keep OCR verdict */ }
+        }
+
+        // Smooth over the last few readings (majority state; activity from the
+        // most recent sample matching the winning state).
+        this._recent.push(fused);
+        if (this._recent.length > 4) this._recent.shift();
+        const counts = {};
+        let best = fused.state, bestN = 0;
+        for (const r of this._recent) { counts[r.state] = (counts[r.state] || 0) + 1; if (counts[r.state] > bestN) { bestN = counts[r.state]; best = r.state; } }
+        const latestMatch = [...this._recent].reverse().find((r) => r.state === best) || fused;
+
+        this.state = best;
+        this.activity = latestMatch.activity;
+        this.confidence = latestMatch.confidence;
+        this.source = latestMatch.source;
     }
 
     async _loop() {
@@ -723,7 +990,7 @@ class ScreenEngine {
             if (!this._busy) {
                 this._busy = true;
                 try { await this._grabAndClassify(); }
-                catch (e) { /* OCR hiccup; keep last state */ }
+                catch (e) { /* OCR/vision hiccup; keep last state */ }
                 this._busy = false;
             }
             await sleep(this.SCREEN_INTERVAL_SEC * 1000);
@@ -743,14 +1010,60 @@ class AppState {
         this.camera_enabled = true;
         this.screen_enabled = true;
         this.camera_state = "Idle";
+        this.camera_action = "Idle";
         this.screen_state = "Neutral";
+        this.screen_activity = "Idle";
+        this.screen_confidence = 0;
+        this.vision_status = "off";
         this.unified_state = "Neutral";
         this.timers = { productive: 0, distracted: 0, neutral: 0, total: 0 };
         this.custom_productive = [];
         this.custom_distracted = [];
         this.override_state = null;
         this.override_until = 0;
+        this.metrics = this._freshMetrics();
         this.session_history = this._loadHistory();
+    }
+
+    _freshMetrics() {
+        return {
+            switches: 0,           // productive/distracted/neutral transitions
+            away_seconds: 0,       // camera reported "Away"
+            looking_away_seconds: 0,
+            current_streak: 0,     // current continuous productive seconds
+            longest_streak: 0,     // best productive streak this session
+            _lastState: null,
+        };
+    }
+
+    // Called every tick with elapsed dt and the live signals.
+    updateMetrics(dt, unifiedState, cameraAction) {
+        const m = this.metrics;
+        if (m._lastState !== null && m._lastState !== unifiedState) m.switches += 1;
+        m._lastState = unifiedState;
+
+        if (cameraAction === "Away") m.away_seconds += dt;
+        else if (cameraAction === "Looking away") m.looking_away_seconds += dt;
+
+        if (unifiedState === "Productive") {
+            m.current_streak += dt;
+            if (m.current_streak > m.longest_streak) m.longest_streak = m.current_streak;
+        } else {
+            m.current_streak = 0;
+        }
+    }
+
+    // 0-100 "focus quality": how much active time was productive, penalized for
+    // frequent context-switching and time spent away from the screen.
+    focusQuality() {
+        const t = this.timers;
+        const active = t.productive + t.distracted;
+        if (t.total < 5) return 0;
+        const productiveRatio = active > 0 ? t.productive / active : 0;
+        const switchRate = this.metrics.switches / Math.max(1, t.total / 60); // per minute
+        const switchPenalty = Math.min(0.35, switchRate * 0.05);
+        const awayPenalty = Math.min(0.25, (this.metrics.away_seconds / Math.max(1, t.total)) * 0.5);
+        return Math.round(Math.max(0, Math.min(1, productiveRatio - switchPenalty - awayPenalty)) * 100);
     }
 
     _loadHistory() {
@@ -783,6 +1096,7 @@ class AppState {
 
     resetTimers() {
         this.timers = { productive: 0, distracted: 0, neutral: 0, total: 0 };
+        this.metrics = this._freshMetrics();
         this.override_state = null;
         this.override_until = 0;
         this.session_started_at = new Date().toISOString();
@@ -799,6 +1113,13 @@ class AppState {
             started_at: this.session_started_at,
             ended_at: new Date().toISOString(),
             unified_state: this.unified_state,
+            focus_quality: this.focusQuality(),
+            metrics: {
+                switches: this.metrics.switches,
+                away_seconds: Math.floor(this.metrics.away_seconds),
+                looking_away_seconds: Math.floor(this.metrics.looking_away_seconds),
+                longest_streak: Math.floor(this.metrics.longest_streak),
+            },
             timers: {
                 productive: secToHMS(this.timers.productive),
                 distracted: secToHMS(this.timers.distracted),
@@ -828,8 +1149,19 @@ class AppState {
             camera_enabled: this.camera_enabled,
             screen_enabled: this.screen_enabled,
             camera_state: this.camera_state,
+            camera_action: this.camera_action,
             screen_state: this.screen_state,
+            screen_activity: this.screen_activity,
+            screen_confidence: this.screen_confidence,
+            vision_status: this.vision_status,
             unified_state: this.unified_state,
+            focus_quality: this.focusQuality(),
+            metrics: {
+                switches: this.metrics.switches,
+                away_seconds: Math.floor(this.metrics.away_seconds),
+                looking_away_seconds: Math.floor(this.metrics.looking_away_seconds),
+                longest_streak: Math.floor(this.metrics.longest_streak),
+            },
             override_state: overrideActive ? this.override_state : null,
             override_remaining: overrideActive ? Math.max(0, Math.floor(this.override_until - Date.now() / 1000)) : 0,
             timers: {
@@ -866,7 +1198,11 @@ export function createEngine({ video, overlay, onStatus, onError }) {
         if (!state.is_running) return;
 
         state.camera_state = state.camera_enabled ? camera.state : "Camera Off";
+        state.camera_action = state.camera_enabled ? camera.action : "Camera Off";
         state.screen_state = state.screen_enabled && screen.isSharing() ? screen.state : "Screen Off";
+        state.screen_activity = state.screen_enabled && screen.isSharing() ? screen.activity : "Off";
+        state.screen_confidence = screen.confidence || 0;
+        state.vision_status = screen.visionStatus;
         const detected = getUnifiedState(state.camera_state, state.screen_state);
         state.unified_state = state.effectiveState(detected);
 
@@ -874,6 +1210,8 @@ export function createEngine({ video, overlay, onStatus, onError }) {
         else if (state.unified_state === "Productive") state.timers.productive += dt;
         else state.timers.neutral += dt;
         state.timers.total += dt;
+
+        state.updateMetrics(dt, state.unified_state, state.camera_action);
     }
 
     return {

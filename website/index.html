@@ -145,6 +145,7 @@
                         </div>
                         <button class="btn-share-screen" id="share-screen-btn" style="display:none;">Share your
                             screen</button>
+                        <div class="vision-status" id="vision-status" style="display:none;"></div>
                     </div>
                 </section>
 
@@ -227,6 +228,31 @@
                                 <div class="timer-label">Total Session</div>
                                 <div class="timer-value total-val" id="timer-total">00:00:00</div>
                             </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel focus-panel">
+                    <div class="card-header">
+                        <span class="card-title">Presence &amp; Focus Quality</span>
+                        <span class="card-subtitle" id="focus-quality-label">&mdash;</span>
+                    </div>
+                    <div class="focus-grid">
+                        <div class="focus-stat">
+                            <div class="focus-stat-value" id="stat-quality">0%</div>
+                            <div class="focus-stat-label">Focus quality</div>
+                        </div>
+                        <div class="focus-stat">
+                            <div class="focus-stat-value" id="stat-streak">0m</div>
+                            <div class="focus-stat-label">Longest streak</div>
+                        </div>
+                        <div class="focus-stat">
+                            <div class="focus-stat-value" id="stat-switches">0</div>
+                            <div class="focus-stat-label">Context switches</div>
+                        </div>
+                        <div class="focus-stat">
+                            <div class="focus-stat-value" id="stat-away">0m</div>
+                            <div class="focus-stat-label">Away / looking off</div>
                         </div>
                     </div>
                 </section>

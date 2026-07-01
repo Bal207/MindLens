@@ -1210,3 +1210,44 @@ input {
     border-color: rgba(255, 107, 107, 0.4);
     color: #ffd7d7;
 }
+
+/* ---------- vision model status + focus quality panel ---------- */
+.vision-status {
+    margin-top: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-dim, #a1a1aa);
+    letter-spacing: 0.01em;
+}
+.vision-status.vision-loading { color: #fbbf24; }
+.vision-status.vision-ready { color: #34d399; }
+.vision-status.vision-failed { color: #a1a1aa; }
+
+.focus-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    padding: 6px 4px 2px;
+}
+.focus-stat {
+    padding: 16px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    text-align: center;
+}
+.focus-stat-value {
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1;
+    background: linear-gradient(135deg, #6e8bff, #b06bff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.focus-stat-label {
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-dim, #a1a1aa);
+}

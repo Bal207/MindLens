@@ -156,13 +156,16 @@ function updateUI(data) {
         setText("session-started", startedLabel(data.session_started_at));
     }
 
-    setText("cam-state-text", data.camera_state || "Idle");
-    setText("scr-state-text", data.screen_state || "Neutral");
+    // HUD shows the granular action/activity, not just the coarse state.
+    setText("cam-state-text", data.is_running && data.camera_enabled ? (data.camera_action || data.camera_state || "Idle") : "Off");
+    setText("scr-state-text", screenHudLabel(data));
 
     document.getElementById("camera-toggle").checked = data.camera_enabled;
     document.getElementById("screen-toggle").checked = data.screen_enabled;
     applyCameraView(data);
     updateScreenShareUI(data);
+    updateVisionStatus(data);
+    updateFocusPanel(data);
     updateOverrideUI(data);
 
     ["productive", "distracted", "neutral"].forEach((type) => {
@@ -221,6 +224,42 @@ function applyCameraView(data) {
         title.textContent = heading;
         sub.textContent = subtext;
     }
+}
+
+function screenHudLabel(data) {
+    if (!data.is_running || !data.screen_enabled) return "Off";
+    if (!engine || !engine.isScreenSharing()) return "Not shared";
+    const activity = data.screen_activity && data.screen_activity !== "Off" ? data.screen_activity : (data.screen_state || "Neutral");
+    if (data.vision_status === "loading") return `${activity} · AI loading…`;
+    return activity;
+}
+
+function updateVisionStatus(data) {
+    const el = document.getElementById("vision-status");
+    if (!el) return;
+    if (!data.is_running || !data.screen_enabled || !engine.isScreenSharing()) { el.style.display = "none"; return; }
+    el.style.display = "block";
+    const map = {
+        loading: "◐ Loading on-device vision model (one-time download)…",
+        ready: "● Vision AI active · fully on-device",
+        failed: "○ Vision AI unavailable — using OCR only",
+        off: "",
+    };
+    el.textContent = map[data.vision_status] || "";
+    el.className = "vision-status vision-" + (data.vision_status || "off");
+}
+
+function updateFocusPanel(data) {
+    const q = data.focus_quality || 0;
+    setText("stat-quality", `${q}%`);
+    const m = data.metrics || {};
+    setText("stat-switches", String(m.switches || 0));
+    setText("stat-streak", formatDuration(m.longest_streak || 0));
+    setText("stat-away", formatDuration((m.away_seconds || 0) + (m.looking_away_seconds || 0)));
+    const label = data.is_running
+        ? (q >= 75 ? "Deep focus" : q >= 45 ? "Steady" : q > 0 ? "Scattered" : "Warming up")
+        : "—";
+    setText("focus-quality-label", label);
 }
 
 function updateScreenShareUI(data) {
