@@ -231,7 +231,8 @@ function screenHudLabel(data) {
     if (!engine || !engine.isScreenSharing()) return "Not shared";
     const activity = data.screen_activity && data.screen_activity !== "Off" ? data.screen_activity : (data.screen_state || "Neutral");
     if (data.vision_status === "loading") return `${activity} · AI loading…`;
-    return activity;
+    const conf = Math.round((data.screen_confidence || 0) * 100);
+    return conf > 0 ? `${activity} · ${conf}%` : activity;
 }
 
 function updateVisionStatus(data) {

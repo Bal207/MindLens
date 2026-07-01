@@ -775,6 +775,7 @@ class ScreenClassifier {
 // screenshot against each prompt; the highest wins.
 const CLIP_LABELS = [
     { label: "a code editor or IDE showing source code", activity: "Coding", state: "Productive" },
+    { label: "a coding interview or online technical assessment", activity: "Coding", state: "Productive" },
     { label: "a terminal or command-line console", activity: "Terminal", state: "Productive" },
     { label: "a video call or online meeting with webcam tiles", activity: "Meeting", state: "Productive" },
     { label: "software documentation or a technical article", activity: "Reading", state: "Productive" },
@@ -855,7 +856,7 @@ class ScreenVision {
 /* ========================================================================== */
 class ScreenEngine {
     constructor() {
-        this.SCREEN_INTERVAL_SEC = 5;
+        this.SCREEN_INTERVAL_SEC = 4;
         this.classifier = new ScreenClassifier();
         this.vision = new ScreenVision();
         this.video = document.createElement("video");
@@ -927,19 +928,27 @@ class ScreenEngine {
         const vw = this.video.videoWidth, vh = this.video.videoHeight;
         if (!vw || !vh) return;
 
+        // Grayscale + boosted contrast makes Tesseract markedly more accurate on
+        // UI text; applied to the OCR canvases only (CLIP still sees full colour).
+        const OCR_FILTER = "grayscale(1) contrast(1.5) brightness(1.05)";
+
         // Full frame (downscaled) for body + a coarse header split.
         const maxWidth = 1600;
         const scale = vw > maxWidth ? maxWidth / vw : 1;
         const cw = Math.round(vw * scale), ch = Math.round(vh * scale);
         this.canvas.width = cw; this.canvas.height = ch;
-        this.canvas.getContext("2d").drawImage(this.video, 0, 0, cw, ch);
+        const fctx = this.canvas.getContext("2d");
+        fctx.filter = OCR_FILTER;
+        fctx.drawImage(this.video, 0, 0, cw, ch);
 
         // High-res, upscaled crop of the very top strip (browser tab bar / window
         // title) where the active site names itself — the most decisive signal.
         const stripH = Math.max(1, Math.round(vh * 0.08));
         const sw = Math.min(vw, 2200);
         this.stripCanvas.width = sw; this.stripCanvas.height = stripH * 2;
-        this.stripCanvas.getContext("2d").drawImage(this.video, 0, 0, vw, stripH, 0, 0, sw, stripH * 2);
+        const sctx = this.stripCanvas.getContext("2d");
+        sctx.filter = OCR_FILTER;
+        sctx.drawImage(this.video, 0, 0, vw, stripH, 0, 0, sw, stripH * 2);
 
         const [full, strip] = await Promise.all([
             this._ocr(this.canvas, 0.12),
@@ -958,13 +967,18 @@ class ScreenEngine {
             try {
                 const v = await this.vision.classify(this.video, vw, vh);
                 if (v) {
-                    if (v.score >= 0.30) {
-                        fused = { state: v.state, activity: v.activity, confidence: v.score, source: "vision" };
+                    const agrees = v.state === ocr.state;
+                    if (v.score >= 0.28) {
+                        // Confident vision verdict wins; corroboration bumps confidence.
+                        fused = { state: v.state, activity: v.activity,
+                            confidence: agrees ? Math.min(0.99, v.score + 0.1) : v.score, source: "vision" };
                     } else if (ocr.state === "Neutral") {
+                        // OCR had nothing; take the vision guess even if weak.
                         fused = { state: v.state, activity: v.activity, confidence: v.score, source: "vision-weak" };
-                    } else if (v.state === ocr.state) {
-                        fused.activity = v.activity; // agree on state, prefer richer activity
-                        fused.confidence = Math.max(fused.confidence, v.score);
+                    } else if (v.score >= 0.18 && agrees) {
+                        // Borderline vision that agrees with OCR's lean: keep the
+                        // state, adopt the richer activity label.
+                        fused = { state: ocr.state, activity: v.activity, confidence: Math.max(0.5, v.score), source: "fused" };
                     }
                 }
             } catch (e) { /* vision hiccup; keep OCR verdict */ }
